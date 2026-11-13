@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const { read, encode } = require('../dist/profile.js');
+const profile = { version: 1, kwp: 11, loss: 20, tilt: 15, azimuth: 180, lat: 10.8, lon: 106.6, offset: 7 };
+assert.deepEqual(read(encode(profile, true)), profile);
+assert.match(encode(profile, true), /Max-Age=31536000; Path=\/; SameSite=Lax; Secure/);
+assert.equal(read('sol_pv_profile=%broken'), null);
+assert.equal(read('other=1'), null);
+assert.equal(read('sol_pv_profile=' + encodeURIComponent(JSON.stringify({ ...profile, kwp: -1 }))), null);
+assert.throws(() => encode({ ...profile, lat: 100 }, false));
+console.log('Profile checks passed: cookie round-trip, expiration, malformed and invalid input.');
