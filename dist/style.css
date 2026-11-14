@@ -73,3 +73,44 @@ header{gap:16px}#theme-toggle{white-space:nowrap}
 .sun-times .compass-help{margin:0 0 16px;padding:12px 14px}.compass-help summary{font-size:11px;line-height:1.7;font-weight:500;cursor:pointer}.compass-help summary::marker{color:#c49b46}.compass-help[open] p{margin-top:10px}.sun-times .compass-help+.event{border-top:1px solid #edf0e8}[data-theme=dark] .sun-times .compass-help+.event{border-color:#34464c}@media(max-width:800px){.energy-preview{margin-bottom:16px}.timeline-card{margin-bottom:20px}.intro{margin-bottom:22px}.header-actions button{display:flex;align-items:center}.view-switch button,.scene-controls button{line-height:1.5}.view-switch button::before{width:18px;height:18px;flex-basis:18px}}
 
 .brand-logo{display:block;width:38px;height:38px;flex-shrink:0;border-radius:9px}@media(max-width:800px){.brand-logo{width:34px;height:34px}}
+
+/* Mobile: location → energy → one compass card with all time controls. */
+@media(max-width:800px){
+  main>.intro{display:none}
+  .location-notice{margin-bottom:12px;padding:10px 14px}
+  .energy-preview{margin-bottom:14px;padding:12px 14px;font-size:12px;gap:8px}
+  .energy-preview button{padding:8px 12px;min-height:40px}
+  .compass-card{min-width:0}
+  .compass-card>.card-heading{padding:16px 16px 4px}
+  .compass-card>.timeline-card{position:sticky;top:0;z-index:10;margin:8px 0 0;padding:12px 16px 14px;border-radius:0;border-width:1px 0;box-shadow:0 5px 12px #253e3508;background:#fff}
+  #date-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;align-items:start;margin-bottom:12px}
+  #date-controls label{display:block;font-size:10px;line-height:1.5;color:#697b6e;margin:0 0 6px}
+  #date-controls #date{width:100%;min-width:0;min-height:42px;padding:8px;font-size:14px}
+  #date-controls #month-label{float:none;display:block;font-size:10px}
+  #date-controls #month{margin:5px 0;height:8px;min-height:8px}
+  #date-controls .month-ticks{margin-top:4px;font-size:8px}
+  .compass-card .timeline-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:center}
+  .compass-card .timeline-top>div:first-child{grid-column:1;grid-row:1}
+  .compass-card .timeline-top .eyebrow{font-size:8px;letter-spacing:1px}
+  .compass-card .time-display{margin-top:3px;gap:8px}
+  .compass-card #selected-time{font-size:27px}
+  .compass-card #phase{max-width:90px;font-size:9px}
+  .compass-card .metrics{grid-column:1;grid-row:2;gap:16px;align-items:center}
+  .compass-card .metrics div{flex-direction:row;align-items:baseline;gap:5px}
+  .compass-card .metrics span{font-size:9px}
+  .compass-card .metrics b{font-size:12px}
+  .compass-card .play-actions{grid-column:2;grid-row:1 / 3;width:auto;margin:0;flex-direction:column;gap:5px}
+  .compass-card .play-actions button{padding:7px 10px;min-height:38px;font-size:10px}
+  .compass-card .play-actions button::before{width:16px;height:16px;margin-right:5px}
+  .compass-card .range-wrap{margin-top:8px;padding:8px 0}
+  .compass-card .time-ticks{margin-top:4px;font-size:8px}
+  .compass-card .view-switch{margin-top:12px}
+  .compass-card .compass-wrap{max-width:380px;width:100%;margin-top:0}
+  #sun-canvas{height:330px}
+  .settings-card>.eyebrow{font-size:0}
+  .settings-card>.eyebrow::after{content:'UTC';font-size:10px}
+  .settings-card .tz-row{margin-top:4px}
+  [data-theme=dark] .compass-card>.timeline-card{background:#19282e;border-color:#34464c}
+  [data-theme=dark] #date-controls label{color:#b0c1bd}
+}
+@media(max-width:360px){#date-controls{gap:8px}.compass-card>.timeline-card{padding:10px 12px}.compass-card .metrics{gap:8px}.compass-card .metrics b{font-size:11px}}

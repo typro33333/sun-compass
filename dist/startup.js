@@ -22,9 +22,17 @@
     const main = document.querySelector('main');
     const energy = $('energy-preview');
     const timeline = document.querySelector('.timeline-card');
-    if (mobile.matches) main.prepend(energy, timeline);
-    else {
-      const workspace = document.querySelector('.workspace');
+    const location = $('location-notice');
+    const dateControls = $('date-controls');
+    const compassCard = document.querySelector('.compass-card');
+    const settings = document.querySelector('.settings-card');
+    const workspace = document.querySelector('.workspace');
+    if (mobile.matches) {
+      main.prepend(location, energy);
+      timeline.prepend(dateControls);
+      compassCard.insertBefore(timeline, document.querySelector('.view-switch'));
+    } else {
+      settings.insertBefore(dateControls, document.querySelector('.coordinates'));
       main.insertBefore(timeline, workspace);
       main.insertBefore(energy, workspace);
     }
