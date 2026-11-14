@@ -6,7 +6,7 @@ const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
 assert.equal(new Set(ids).size,ids.length,'HTML IDs must be unique');
 const server=fs.readFileSync(new URL('server.js',root),'utf8');
 const scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(x=>x[1]);
-for(const file of [...scripts,'style.css']){
+for(const file of [...scripts,'style.css','favicon.svg']){
   assert(fs.existsSync(new URL('dist/'+file,root)),`Missing asset ${file}`);
   assert(server.includes(`['/${file}', '${file}']`),`Missing route ${file}`);
 }

@@ -8,7 +8,7 @@
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#101b20' : '#f7f8f4');
     const button = document.getElementById('theme-toggle');
     if (button) {
-      button.textContent = theme === 'dark' ? '☀ Chế độ sáng' : '☾ Chế độ tối';
+      button.textContent = theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối';
       button.setAttribute('aria-pressed', String(theme === 'dark'));
       button.setAttribute('aria-label', 'Chế độ tối');
     }

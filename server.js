@@ -16,6 +16,7 @@ const assets = new Map([
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
   ['/style.css', 'style.css'],
+  ['/favicon.svg', 'favicon.svg'],
   ['/theme.js', 'theme.js'],
   ['/i18n.js', 'i18n.js'],
   ['/forecast-client.js', 'forecast-client.js'],

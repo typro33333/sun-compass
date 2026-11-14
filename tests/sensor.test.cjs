@@ -26,7 +26,9 @@ vm.runInContext(fs.readFileSync(require.resolve('../dist/sensor.js'), 'utf8'), c
   listeners.get('deviceorientation')({ absolute: false, alpha: 120 });
   assert.equal(context.heading, 270, 'Do not treat relative orientation as north');
   await $('sensor').onclick();
-  assert.equal(context.heading, 0);
+  assert.equal(context.heading, 270, 'Turning the sensor off must preserve the last heading');
+  assert.match($('heading-label').textContent, /270°.*Giữ hướng/);
+  assert.match($('sensor-status').textContent, /Giữ nguyên/);
   assert.equal(listeners.size, 0);
   window.isSecureContext = false;
   await $('sensor').onclick();

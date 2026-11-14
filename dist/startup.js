@@ -17,7 +17,20 @@
   });
   $('energy-open').addEventListener('click', () => closeMenu());
   const mobile = window.matchMedia('(max-width: 800px)');
-  mobile.addEventListener('change', () => closeMenu());
+  function arrangeMobile() {
+    closeMenu();
+    const main = document.querySelector('main');
+    const energy = $('energy-preview');
+    const timeline = document.querySelector('.timeline-card');
+    if (mobile.matches) main.prepend(energy, timeline);
+    else {
+      const workspace = document.querySelector('.workspace');
+      main.insertBefore(timeline, workspace);
+      main.insertBefore(energy, workspace);
+    }
+  }
+  mobile.addEventListener('change', arrangeMobile);
+  arrangeMobile();
 
   function failure(message) {
     $('location-status').textContent = message;
@@ -41,8 +54,8 @@
       setCurrentTime();
       locationReady = true;
       $('location-name').textContent = 'Vị trí hiện tại';
-      $('location-status').textContent = `Đã lấy vị trí hiện tại · GPS ±${Math.round(position.coords.accuracy)} m`;
-      $('feedback').textContent = `GPS ±${Math.round(position.coords.accuracy)} m. Múi giờ theo thiết bị; bạn có thể điều chỉnh.`;
+      $('location-status').textContent = 'Đã lấy vị trí hiện tại';
+      $('feedback').textContent = 'Múi giờ theo thiết bị; bạn có thể điều chỉnh.';
       $('location-retry').hidden = true;
       refresh();
     }, error => {

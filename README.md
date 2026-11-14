@@ -185,3 +185,8 @@ Xác minh hiện tại: Bun build, toàn bộ test, sao chép asset và `docker 
 Khi đã nhận hướng Bắc hợp lệ, sự kiện chuyển động tương đối không ghi đè trạng thái hoạt động. Nguồn cảm biến đang dùng được giữ ổn định; chỉ chuyển nguồn khi nguồn hiện tại im lặng hơn 3 giây. Cảnh báo nghiêng dùng ngưỡng vào 40°/ra 30° để tránh nhấp nháy quanh một ngưỡng. Trạng thái chỉ cập nhật khi nội dung thay đổi.
 
 3D mặc định theo heading khi cảm biến sẵn sàng, dùng cùng quy ước hướng với 2D. Kéo tay ngắt theo dõi trong 3D nhưng không tắt cảm biến của 2D. Nút theo la bàn bật lại theo dõi và yêu cầu quyền cảm biến nếu chưa bật. Đây là xoay theo phương vị; giữ điện thoại nằm phẳng, không phải chế độ AR theo toàn bộ góc nghiêng của điện thoại. Kiểm tra giả lập và build đã đạt; cần xác nhận cảm biến trên điện thoại thật.
+
+
+### Mobile và giữ hướng la bàn
+
+Tắt hoặc mất cảm biến giữ heading cuối của la bàn 2D và góc nhìn 3D đã xem, không quay về Bắc mặc định. Nhãn hiển thị “Giữ hướng”; bật lại sẽ tiếp tục cập nhật theo điện thoại. Trên màn hình tối đa 800px, thứ tự DOM là dự đoán điện → mô phỏng trong ngày → nội dung còn lại; quay về desktop sẽ khôi phục bố cục thường. GPS thành công chỉ hiện trạng thái đã lấy vị trí, không hiện sai số mét. Giải thích chấm vàng nằm trong mục mở rộng dưới Mặt trời mọc. Icon nút dùng SVG mask và favicon dùng `dist/favicon.svg`.

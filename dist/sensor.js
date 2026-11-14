@@ -12,10 +12,10 @@
     window.screen?.orientation?.removeEventListener('change', screenChanged);
     clearTimeout(timer);
     if (frame) cancelAnimationFrame(frame);
-    frame = null; lastEvent = null; heading = 0;
-    $('sensor').textContent = 'Bật la bàn thiết bị ↗';
+    frame = null; lastEvent = null;
+    $('sensor').textContent = 'Bật la bàn thiết bị';
     $('sensor').setAttribute('aria-pressed', 'false');
-    $('heading-label').textContent = '↑ Bắc cố định';
+    $('heading-label').textContent = `↑ ${Math.round(heading)}° ${direction(heading)} · Giữ hướng`;
     status(message); draw();
   }
   function screenChanged() { if (lastEvent) orientation(lastEvent); }
@@ -54,7 +54,7 @@
   }
   $('sensor').onclick = async () => {
     if (pending) return;
-    if (active) { stopSensor('Đã tắt cảm biến. La bàn trở về Bắc cố định.'); return; }
+    if (active) { stopSensor('Đã tắt cảm biến. Giữ nguyên hướng la bàn vừa xem.'); return; }
     if (!window.isSecureContext) {
       status('Cảm biến cần HTTPS. Địa chỉ http://192.168… trên điện thoại không dùng được la bàn; hãy mở bản HTTPS.');
       return;

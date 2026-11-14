@@ -608,6 +608,11 @@ solTranslations.push(
  ['3D đang xoay bằng tay.', '3D is in manual rotation mode.'],
  ['Bật la bàn để 3D xoay theo điện thoại. Kéo hoặc dùng phím mũi tên để chuyển sang xoay tay; bấm Theo la bàn thiết bị để theo dõi lại. Giữ điện thoại nằm phẳng. Mặt phẳng là đường chân trời; cảnh không biểu diễn thời tiết.', 'Enable the compass to rotate 3D with your phone. Drag or use arrow keys for manual rotation; select Follow device compass to resume. Hold your phone flat. The plane is the horizon; the scene does not show weather.']
 );
+solTranslations.push(
+ ['Đã tắt cảm biến. Giữ nguyên hướng la bàn vừa xem.', 'Sensor off. Keeping the last compass heading.'],
+ ['Giữ hướng', 'Heading held'],
+ ['Múi giờ theo thiết bị; bạn có thể điều chỉnh.', 'The UTC offset follows your device; you can adjust it.']
+);
 (() => {
   let language = 'vi';
   try { if (localStorage.getItem('sol-language') === 'en') language = 'en'; } catch {}

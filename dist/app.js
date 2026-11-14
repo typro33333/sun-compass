@@ -32,12 +32,12 @@ function draw(){
  globalThis.renderSolarScene?.();
 }
 function refresh(){if (!locationReady) return;globalThis.onSolarLocationChanged?.();syncMonth();loadWeather();events=Solar.events($('date').value,lat,lon,offset);for(const [key,m] of [['rise',events.rise],['set',events.set]]){$(key+'-time').textContent=fmt(m);$(key+'-dir').textContent=m===null?'Không xảy ra':(()=>{const a=Solar.position($('date').value,m,lat,lon,offset).azimuth;return `${Math.round(a)}° ${direction(a)}`;})();}$('daylength').textContent=`${Math.floor(events.daylight/60)} giờ ${events.daylight%60} phút`;draw();}
-function stop(){clearInterval(playing);playing=null;$('play').textContent='▶  Tự chạy';}
+function stop(){clearInterval(playing);playing=null;$('play').textContent='Tự chạy';$('play').dataset.playing='false';}
 $('time').addEventListener('input',e=>{stop();minute=+e.target.value;draw();});
 $('date').addEventListener('change',()=>{if(!$('date').value){$('date').value=today();}refresh();});
 for(const id of ['lat','lon','timezone'])$(id).addEventListener('change',()=>{if(!['lat','lon','timezone'].every(k=>$(k).value!==''&&$(k).checkValidity())){$('feedback').textContent='Nhập vĩ độ −90 đến 90, kinh độ −180 đến 180 và UTC −12 đến +14.';return;}lat=+$('lat').value;lon=+$('lon').value;offset=+$('timezone').value;$('location-name').textContent='Vị trí tùy chọn';$('feedback').textContent='Đã cập nhật tọa độ. Thời gian được hiển thị theo múi giờ UTC đã chọn.';refresh();});
 $('now').onclick=()=>{stop();setCurrentTime();refresh();};
-$('play').onclick=()=>{if(playing){stop();return;}$('play').textContent='Ⅱ  Tạm dừng';playing=setInterval(()=>{minute=(minute+3)%1440;draw();},100);};
+$('play').onclick=()=>{if(playing){stop();return;}$('play').textContent='Tạm dừng';$('play').dataset.playing='true';playing=setInterval(()=>{minute=(minute+3)%1440;draw();},100);};
 function syncMonth() {
   const [year, month] = $('date').value.split('-');
   $('month').value = Number(month);
