@@ -2,7 +2,9 @@
 (() => {
   const canvas = $('sun-canvas'), ctx = canvas.getContext('2d');
   const panel = $('solar-3d'), compass = document.querySelector('.compass-wrap');
-  let yaw = -0.35, pitch = 0.55, active = false, drag = null;
+  let yaw = -0.35, pitch = 0.55, active = false, drag = null, follow = true;
+  let lastMode = '';
+  function manual() { follow = false; $('scene-follow').setAttribute('aria-pressed', 'false'); }
   let pathKey = '', orbit = [];
   const radians = Math.PI / 180;
   function vector(azimuth, altitude, radius = 1) {
@@ -11,6 +13,9 @@
   }
   function render() {
     if (!active || !ctx) return;
+    if (follow && globalThis.compassState?.ready) yaw = heading * radians;
+    const mode = follow ? (globalThis.compassState?.ready ? '3D đang xoay theo la bàn thiết bị.' : '3D sẽ xoay theo điện thoại khi bật la bàn.') : '3D đang xoay bằng tay.';
+    if (mode !== lastMode) { lastMode = mode; $('scene-mode').textContent = mode; }
     if (!locationReady) { $('scene-status').textContent = 'Đang chờ vị trí'; return; }
     const width = canvas.clientWidth, height = canvas.clientHeight;
     if (!width || !height) return;
@@ -86,6 +91,7 @@
   if (!ctx) { $('view-3d').disabled=true; $('view-3d').title='Trình duyệt không hỗ trợ canvas';return; }
   canvas.addEventListener('pointerdown', e => {
     if (drag || (e.pointerType==='mouse' && e.button!==0)) return;
+    manual();
     drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove',e=>{
@@ -96,12 +102,17 @@
   for(const event of ['pointerup','pointercancel','lostpointercapture']) canvas.addEventListener(event,()=>{drag=null;});
   canvas.addEventListener('keydown',e=>{
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
-    e.preventDefault();yaw+=e.key==='ArrowLeft'?-.15:e.key==='ArrowRight'?.15:0;
+    e.preventDefault();manual();yaw+=e.key==='ArrowLeft'?-.15:e.key==='ArrowRight'?.15:0;
     pitch=Math.max(.15,Math.min(1.3,pitch+(e.key==='ArrowUp'?.1:e.key==='ArrowDown'?-.1:0)));render();
   });
-  $('rotate-left').onclick=()=>{yaw-=.25;render();};
-  $('rotate-right').onclick=()=>{yaw+=.25;render();};
-  $('scene-reset').onclick=()=>{yaw=-.35;pitch=.55;render();};
+  $('rotate-left').onclick=()=>{manual();yaw-=.25;render();};
+  $('rotate-right').onclick=()=>{manual();yaw+=.25;render();};
+  $('scene-reset').onclick=()=>{manual();yaw=-.35;pitch=.55;render();};
+  $('scene-follow').onclick = () => {
+    follow = true; $('scene-follow').setAttribute('aria-pressed', 'true');
+    if (!globalThis.compassState?.active) $('sensor').click();
+    render();
+  };
   new ResizeObserver(render).observe(canvas);
   new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   globalThis.renderSolarScene=render;

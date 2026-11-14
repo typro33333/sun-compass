@@ -4,9 +4,9 @@ const assert = require('node:assert/strict');
 const nodes = new Map();
 const $ = id => { if (!nodes.has(id)) nodes.set(id, { setAttribute() {} }); return nodes.get(id); };
 const listeners = new Map();
-let permissionArgument;
+let permissionArgument, clock = 10000;
 const window = { isSecureContext: true, screen: { orientation: { angle: 0, addEventListener() {}, removeEventListener() {} } }, DeviceOrientationEvent: { async requestPermission(absolute) { permissionArgument = absolute; return 'granted'; } }, addEventListener(type, fn) { listeners.set(type, fn); }, removeEventListener(type) { listeners.delete(type); } };
-const context = { $, window, heading: 0, direction: () => 'B', draw() {}, setTimeout: () => 1, clearTimeout() {}, requestAnimationFrame: () => 1, cancelAnimationFrame() {} };
+const context = { $, window, Date: { now: () => clock }, heading: 0, direction: () => 'B', draw() {}, setTimeout: () => 1, clearTimeout() {}, requestAnimationFrame: () => 1, cancelAnimationFrame() {} };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(require.resolve('../dist/sensor.js'), 'utf8'), context);
 (async () => {
@@ -14,6 +14,12 @@ vm.runInContext(fs.readFileSync(require.resolve('../dist/sensor.js'), 'utf8'), c
   assert.equal(permissionArgument, true);
   listeners.get('deviceorientation')({ webkitCompassHeading: 90, webkitCompassAccuracy: 5 });
   assert.equal(context.heading, 90);
+  const stableStatus = $('sensor-status').textContent;
+  listeners.get('deviceorientation')({ absolute: false, alpha: 120 });
+  assert.equal($('sensor-status').textContent, stableStatus, 'Relative events must not overwrite an active status');
+  listeners.get('deviceorientationabsolute')({ type: 'deviceorientationabsolute', alpha: 0 });
+  assert.equal(context.heading, 90, 'Do not alternate valid sensor sources');
+  clock += 4000;
   window.screen.orientation.angle = 90;
   listeners.get('deviceorientationabsolute')({ type: 'deviceorientationabsolute', alpha: 0 });
   assert.equal(context.heading, 270);

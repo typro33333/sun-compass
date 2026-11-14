@@ -47,7 +47,7 @@ Khi bấm tính sản lượng, cookie `sol_pv_profile` lưu kWp, hao hụt, đ�
 
 ## Góc nhìn 3D thử nghiệm
 
-Chọn **Không gian 3D** phía trên la bàn. Kéo chuột hoặc một ngón tay để xoay, dùng phím mũi tên khi canvas có focus, hoặc dùng các nút xoay/đặt lại. Cảnh đồng bộ vị trí, ngày/tháng và thanh giờ; góc nhìn độc lập cảm biến hướng thiết bị. Mặt phẳng biểu diễn đường chân trời, đường vàng là quỹ đạo ban ngày, mặt trời màu xám nằm dưới chân trời. Không biểu diễn thời tiết trong cảnh 3D. Module dùng phép chiếu không gian trên Canvas, không cần thư viện hay tải mô hình bên ngoài. Chế độ 2D vẫn là mặc định.
+Chọn **Không gian 3D** phía trên la bàn. Kéo chuột hoặc một ngón tay để xoay, dùng phím mũi tên khi canvas có focus, hoặc dùng các nút xoay/đặt lại. Cảnh đồng bộ vị trí, ngày/tháng và thanh giờ; góc nhìn có thể theo cảm biến hướng thiết bị như la bàn 2D. Bật cảm biến qua nút dùng chung dưới cảnh. Kéo hoặc dùng nút/phím xoay chuyển sang chế độ thủ công; bấm **Theo la bàn thiết bị** để tiếp tục theo cảm biến. Mặt phẳng biểu diễn đường chân trời, đường vàng là quỹ đạo ban ngày, mặt trời màu xám nằm dưới chân trời. Không biểu diễn thời tiết trong cảnh 3D. Module dùng phép chiếu không gian trên Canvas, không cần thư viện hay tải mô hình bên ngoài. Chế độ 2D vẫn là mặc định.
 
 ## Ngôn ngữ
 
@@ -178,3 +178,10 @@ docker compose -f deployments/compose.yaml down
 ```
 
 Xác minh hiện tại: Bun build, toàn bộ test, sao chép asset và `docker compose config --quiet` đã đạt. Chưa build/chạy container được trong sandbox vì Docker bị chặn ghi build-state ở `~/.docker/buildx/`.
+
+
+### Ổn định cảm biến và 3D theo la bàn
+
+Khi đã nhận hướng Bắc hợp lệ, sự kiện chuyển động tương đối không ghi đè trạng thái hoạt động. Nguồn cảm biến đang dùng được giữ ổn định; chỉ chuyển nguồn khi nguồn hiện tại im lặng hơn 3 giây. Cảnh báo nghiêng dùng ngưỡng vào 40°/ra 30° để tránh nhấp nháy quanh một ngưỡng. Trạng thái chỉ cập nhật khi nội dung thay đổi.
+
+3D mặc định theo heading khi cảm biến sẵn sàng, dùng cùng quy ước hướng với 2D. Kéo tay ngắt theo dõi trong 3D nhưng không tắt cảm biến của 2D. Nút theo la bàn bật lại theo dõi và yêu cầu quyền cảm biến nếu chưa bật. Đây là xoay theo phương vị; giữ điện thoại nằm phẳng, không phải chế độ AR theo toàn bộ góc nghiêng của điện thoại. Kiểm tra giả lập và build đã đạt; cần xác nhận cảm biến trên điện thoại thật.

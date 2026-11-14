@@ -601,6 +601,13 @@ solTranslations.push(
  ['ô thời tiết ~2 km', '~2 km weather grid'],
  ['Ô thời tiết ~2 km.', '~2 km weather grid.']
 );
+solTranslations.push(
+ ['Theo la bàn thiết bị', 'Follow device compass'],
+ ['3D đang xoay theo la bàn thiết bị.', '3D is following the device compass.'],
+ ['3D sẽ xoay theo điện thoại khi bật la bàn.', 'Enable the compass to rotate the 3D view with your phone.'],
+ ['3D đang xoay bằng tay.', '3D is in manual rotation mode.'],
+ ['Bật la bàn để 3D xoay theo điện thoại. Kéo hoặc dùng phím mũi tên để chuyển sang xoay tay; bấm Theo la bàn thiết bị để theo dõi lại. Giữ điện thoại nằm phẳng. Mặt phẳng là đường chân trời; cảnh không biểu diễn thời tiết.', 'Enable the compass to rotate 3D with your phone. Drag or use arrow keys for manual rotation; select Follow device compass to resume. Hold your phone flat. The plane is the horizon; the scene does not show weather.']
+);
 (() => {
   let language = 'vi';
   try { if (localStorage.getItem('sol-language') === 'en') language = 'en'; } catch {}

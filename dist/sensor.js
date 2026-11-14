@@ -1,8 +1,11 @@
 (() => {
   let active = false, pending = false, timer, frame, lastEvent;
-  const status = message => { $('sensor-status').textContent = message; };
+  let source = null, lastValidAt = 0, tilted = false, lastStatus = '';
+  const state = globalThis.compassState = { active: false, ready: false };
+  const status = message => { if (message !== lastStatus) { lastStatus = message; $('sensor-status').textContent = message; } };
   function stopSensor(message) {
-    active = false;
+    active = false; state.active = false; state.ready = false;
+    source = null; lastValidAt = 0; tilted = false;
     window.removeEventListener('deviceorientation', orientation);
     window.removeEventListener('deviceorientationabsolute', orientation);
     window.removeEventListener('orientationchange', screenChanged);
@@ -21,13 +24,17 @@
     const apple = Number.isFinite(event.webkitCompassHeading) && event.webkitCompassHeading >= 0;
     const absolute = event.absolute === true || event.type === 'deviceorientationabsolute';
     if (!apple && (!absolute || !Number.isFinite(event.alpha))) {
+      if (state.ready) return;
       status('Chỉ nhận được chuyển động tương đối, chưa xác định được hướng Bắc. Hãy mở bằng Safari/Chrome và cho phép cảm biến.');
       return;
     }
+    const incomingSource = apple ? 'webkit' : event.type === 'deviceorientationabsolute' ? 'absolute' : 'orientation';
+    if (source && source !== incomingSource && Date.now() - lastValidAt < 3000) return;
     if (apple && Number.isFinite(event.webkitCompassAccuracy) && event.webkitCompassAccuracy < 0) {
       status('Cảm biến chưa hiệu chỉnh. Đưa máy xa kim loại và di chuyển nhẹ theo hình số 8.');
       return;
     }
+    source = incomingSource; lastValidAt = Date.now(); state.ready = true;
     lastEvent = event;
     clearTimeout(timer);
     const raw = apple ? event.webkitCompassHeading : 360 - event.alpha;
@@ -36,7 +43,11 @@
     heading = ((raw - angle) % 360 + 360) % 360;
     $('heading-label').textContent = `↑ ${Math.round(heading)}° ${direction(heading)}`;
     $('sensor').textContent = 'Tắt la bàn';
-    const tilted = Number.isFinite(event.beta) && Number.isFinite(event.gamma) && (Math.abs(event.beta) > 35 || Math.abs(event.gamma) > 35);
+    if (Number.isFinite(event.beta) && Number.isFinite(event.gamma)) {
+      const inclination = Math.max(Math.abs(event.beta), Math.abs(event.gamma));
+      if (inclination > 40) tilted = true;
+      else if (inclination < 30) tilted = false;
+    }
     status(tilted ? 'Đã nhận cảm biến. Hãy giữ máy nằm phẳng để đọc hướng chính xác hơn.' : 'La bàn đang hoạt động · Xoay máy nằm phẳng để thấy các hướng đổi theo bạn.');
     if (!frame) frame = requestAnimationFrame(() => { frame = null; draw(); });
     timer = setTimeout(() => stopSensor('Cảm biến đã ngừng gửi dữ liệu. Bấm bật lại; nếu vẫn lỗi, mở trang trực tiếp bằng Safari/Chrome.'), 8000);
@@ -57,7 +68,7 @@
         status('Quyền chuyển động/hướng đã bị từ chối. Cho phép quyền cảm biến trong cài đặt trang rồi bấm bật lại.');
         return;
       }
-      active = true;
+      active = true; state.active = true; state.ready = false;
       $('sensor').setAttribute('aria-pressed', 'true');
       $('sensor').textContent = 'Hủy / tắt la bàn';
       status('Đang chờ cảm biến hướng Bắc… Giữ điện thoại nằm phẳng.');
