@@ -55,7 +55,6 @@
     navigator.geolocation.getCurrentPosition(position => {
       lat = position.coords.latitude;
       lon = position.coords.longitude;
-      offset = -new Date().getTimezoneOffset() / 60;
       $('lat').value = lat.toFixed(4);
       $('lon').value = lon.toFixed(4);
       $('timezone').value = offset;
@@ -63,7 +62,7 @@
       locationReady = true;
       $('location-name').textContent = 'Vị trí hiện tại';
       $('location-status').textContent = 'Đã lấy vị trí hiện tại';
-      $('feedback').textContent = 'Múi giờ theo thiết bị; bạn có thể điều chỉnh.';
+      $('feedback').textContent = 'Mặc định UTC+7. Có thể chỉnh múi giờ trong menu.';
       $('location-retry').hidden = true;
       refresh();
     }, error => {

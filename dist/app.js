@@ -1,6 +1,13 @@
 const $=id=>document.getElementById(id),R=Math.PI/180;
 let locationReady=false;
-let lat=10.8231,lon=106.6297,offset=-new Date().getTimezoneOffset()/60,minute=0,heading=0,playing=null,events;
+let lat=10.8231,lon=106.6297,offset=7,minute=0,heading=0,playing=null,events;
+try {
+  const savedOffset = localStorage.getItem('sol-utc-offset');
+  if (savedOffset !== null && savedOffset.trim() !== '') {
+    const parsed = Number(savedOffset);
+    if (Number.isFinite(parsed) && parsed >= -12 && parsed <= 14 && Number.isInteger(parsed * 4)) offset = parsed;
+  }
+} catch {}
 const today=()=>new Date(Date.now()+offset*3600000).toISOString().slice(0,10);
 function setCurrentTime() {
   const now = new Date(Date.now() + offset * 3600000);
@@ -35,7 +42,15 @@ function refresh(){if (!locationReady) return;globalThis.onSolarLocationChanged?
 function stop(){clearInterval(playing);playing=null;$('play').textContent='Tự chạy';$('play').dataset.playing='false';}
 $('time').addEventListener('input',e=>{stop();minute=+e.target.value;draw();});
 $('date').addEventListener('change',()=>{if(!$('date').value){$('date').value=today();}refresh();});
-for(const id of ['lat','lon','timezone'])$(id).addEventListener('change',()=>{if(!['lat','lon','timezone'].every(k=>$(k).value!==''&&$(k).checkValidity())){$('feedback').textContent='Nhập vĩ độ −90 đến 90, kinh độ −180 đến 180 và UTC −12 đến +14.';return;}lat=+$('lat').value;lon=+$('lon').value;offset=+$('timezone').value;$('location-name').textContent='Vị trí tùy chọn';$('feedback').textContent='Đã cập nhật tọa độ. Thời gian được hiển thị theo múi giờ UTC đã chọn.';refresh();});
+$('timezone').addEventListener('change', () => {
+  if ($('timezone').value === '' || !$('timezone').checkValidity()) {
+    $('timezone').reportValidity();
+    return;
+  }
+  offset = Number($('timezone').value);
+  try { localStorage.setItem('sol-utc-offset', String(offset)); } catch {}
+  refresh();
+});
 $('now').onclick=()=>{stop();setCurrentTime();refresh();};
 $('play').onclick=()=>{if(playing){stop();return;}$('play').textContent='Tạm dừng';$('play').dataset.playing='true';playing=setInterval(()=>{minute=(minute+3)%1440;draw();},100);};
 function syncMonth() {

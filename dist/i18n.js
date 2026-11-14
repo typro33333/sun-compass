@@ -613,6 +613,7 @@ solTranslations.push(
  ['Giữ hướng', 'Heading held'],
  ['Múi giờ theo thiết bị; bạn có thể điều chỉnh.', 'The UTC offset follows your device; you can adjust it.']
 );
+solTranslations.push(['Mặc định UTC+7. Có thể chỉnh múi giờ trong menu.', 'Default UTC+7. Adjust the UTC offset in the menu.']);
 (() => {
   let language = 'vi';
   try { if (localStorage.getItem('sol-language') === 'en') language = 'en'; } catch {}
