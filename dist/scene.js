@@ -56,9 +56,9 @@
     if (segment.length) stroke(segment,'#c99b40',2.3);
     ctx.font = '600 13px sans-serif'; ctx.textAlign = 'center';
     ['Bắc','Đông','Nam','Tây'].forEach((label,i) => {
-      const [x,y] = project(vector(i*90,0,1.14)); ctx.fillStyle = i===0 ? '#c18b38' : ink; ctx.fillText(globalThis.solText?.(label) || label,x,y+4);
+      const [x,y] = project(vector(i*90,0,1.14)); ctx.fillStyle = i===0 ? (dark ? '#f1c77d' : '#80551e') : ink; ctx.fillText(globalThis.solText?.(label) || label,x,y+4);
     });
-    for (const [time,color,label] of [[events.rise,'#6b977d','Mọc'],[events.set,'#cb8564','Lặn']]) {
+    for (const [time,color,label] of [[events.rise,dark ? '#a8d6bd' : '#3f7052','Mọc'],[events.set,dark ? '#efb393' : '#914a2f','Lặn']]) {
       if (time === null) continue;
       const p = Solar.position($('date').value,time,lat,lon,offset);
       const [x,y] = project(vector(p.azimuth,0));

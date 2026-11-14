@@ -42,6 +42,7 @@
 
   function failure(message) {
     $('location-status').textContent = message;
+    $('location-retry').textContent = 'Thử lại GPS';
     $('feedback').textContent = message;
     $('location-retry').hidden = false;
     $('location-retry').disabled = false;
@@ -70,5 +71,4 @@
     }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   }
   $('location-retry').onclick = locate;
-  locate();
 })();

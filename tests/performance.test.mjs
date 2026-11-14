@@ -29,3 +29,21 @@ const hashed=await handler(new Request('https://test/'+app));assert.match(hashed
 const alias=await handler(new Request('https://test/app.js'));assert.equal(alias.headers.get('cache-control'),'no-cache');
 const css=await readFile(new URL(names.find(n=>/^style\.[a-f0-9]{12}\.css$/.test(n)),base),'utf8');assert(!css.includes('fonts.googleapis.com'));
 console.log('Performance checks passed: HTML does not wait for Redis; Brotli/Gzip round-trip, q=0 handling, immutable hashes and no remote font.');
+
+// Source-mode startup must compress text even without prebuilt sidecars.
+const sourceBase = new URL('../dist/', import.meta.url);
+const sourceServe = createStaticResponse(sourceBase);
+for (const asset of ['index.html', 'style.css', 'app.js']) {
+  const request = new Request('https://test/' + asset, {headers:{'Accept-Encoding':'gzip'}});
+  const response = await sourceServe(asset, 'GET', {}, request);
+  assert.equal(response.headers.get('content-encoding'), 'gzip');
+  assert.equal(response.headers.get('vary'), 'Accept-Encoding');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  assert.deepEqual(gunzipSync(bytes), await readFile(new URL(asset, sourceBase)));
+  const head = await sourceServe(asset, 'HEAD', {}, request);
+  assert.equal(head.headers.get('content-length'), String(bytes.length));
+  assert.equal(await head.text(), '');
+  const plain = await sourceServe(asset, 'GET', {}, new Request('https://test/' + asset));
+  assert.equal(plain.headers.get('content-encoding'), null);
+}
+console.log('Source serving checks passed: cached Gzip for HTML/CSS/JS, HEAD and uncompressed fallback.');

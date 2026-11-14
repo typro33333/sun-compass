@@ -28,8 +28,8 @@ function draw(){
  const day=$('date').value,p=Solar.position(day,minute,lat,lon,offset);
  let dial='<circle cx="300" cy="300" r="210" fill="none" stroke="#e4e8dc"/><circle cx="300" cy="300" r="155" fill="none" stroke="#edf0e8" stroke-dasharray="3 6"/><circle cx="300" cy="300" r="85" fill="none" stroke="#edf0e8" stroke-dasharray="3 6"/>';
  for(let a=0;a<360;a+=3)dial+=line(a,a%30===0?218:224,232,a%30===0?'#98a58e':'#cfd6c5',a%30===0?1.5:1);
- for(let a=0;a<360;a+=30){const [x,y]=point(a,201);dial+=`<text x="${x}" y="${y+3}" text-anchor="middle" font-size="9" fill="#9da693">${a}°</text>`;}
- ['B','Đ','N','T'].forEach((d,i)=>{const [x,y]=point(i*90,260);dial+=`<text x="${x}" y="${y+6}" text-anchor="middle" font-size="19" font-weight="500" fill="${i===0?'#c18d53':'#687e6a'}">${d}</text>`;});$('dial').innerHTML=dial;
+ for(let a=0;a<360;a+=30){const [x,y]=point(a,201);dial+=`<text x="${x}" y="${y+3}" text-anchor="middle" font-size="9" fill="#5f7062">${a}°</text>`;}
+ ['B','Đ','N','T'].forEach((d,i)=>{const [x,y]=point(i*90,260);dial+=`<text x="${x}" y="${y+6}" text-anchor="middle" font-size="19" font-weight="500" fill="${i===0?'#91632a':'#56695b'}">${d}</text>`;});$('dial').innerHTML=dial;
  const orbitKey = `${day},${lat},${lon},${offset}`;
  if (orbitKey !== dailyOrbitKey) {
    dailyOrbitKey = orbitKey;
@@ -37,7 +37,7 @@ function draw(){
  }
  let path='',pen=false;for(const s of dailyOrbit){if(s.altitude<-.833){pen=false;continue;}const [x,y]=point(s.azimuth,210*(90-Math.max(0,s.altitude))/90);path+=`${pen?'L':'M'}${x},${y} `;pen=true;}
  let plot=`<path d="${path}" fill="none" stroke="#c2ae72" stroke-width="1.6" stroke-dasharray="4 5"/>`;
- [[events.rise,'#6b977d','MỌC'],[events.set,'#cb8564','LẶN']].forEach(([m,c,t])=>{if(m===null)return;const s=Solar.position(day,m,lat,lon,offset),[x,y]=point(s.azimuth,210),label=point(s.azimuth,177);plot+=line(s.azimuth,20,210,c,.7)+`<circle cx="${x}" cy="${y}" r="5" fill="${c}"/><text x="${label[0]}" y="${label[1]-9}" font-size="9" text-anchor="middle" fill="${c}">${t}</text>`;});
+ [[events.rise,'#3f7052','MỌC'],[events.set,'#9a5536','LẶN']].forEach(([m,c,t])=>{if(m===null)return;const s=Solar.position(day,m,lat,lon,offset),[x,y]=point(s.azimuth,210),label=point(s.azimuth,177);plot+=line(s.azimuth,20,210,c,.7)+`<circle cx="${x}" cy="${y}" r="5" fill="${c}"/><text x="${label[0]}" y="${label[1]-9}" font-size="9" text-anchor="middle" fill="${c}">${t}</text>`;});
  const [x,y]=point(p.azimuth,210*(90-Math.max(0,p.altitude))/90);plot+=line(p.azimuth,17,210,'#d2aa4f',1);plot+=`<circle cx="${x}" cy="${y}" r="25" fill="#f3cb66" opacity=".15"/><circle cx="${x}" cy="${y}" r="14" fill="${p.altitude>=-.833?'#efc15b':'#a4b0b7'}" stroke="white" stroke-width="4" filter="url(#shadow)"/>`;$('plot').innerHTML=plot;
  $('selected-time').textContent=fmt(minute);$('azimuth').textContent=`${p.azimuth.toFixed(1)}° ${direction(p.azimuth)}`;$('altitude').textContent=`${p.altitude.toFixed(1)}°`;
  $('day-status').textContent=p.altitude>=-.833?'Ban ngày':'Ban đêm';$('phase').textContent=p.altitude<-.833?'Dưới đường chân trời':p.altitude<6?'Ánh nắng sát chân trời':'Nắng ban ngày';$('time').value=minute;$('time').setAttribute('aria-valuetext',fmt(minute));
