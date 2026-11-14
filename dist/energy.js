@@ -2,11 +2,13 @@
 (function (root) {
   function estimate(hourly, start, end, kwp, loss) {
     if (!Number.isFinite(kwp) || kwp <= 0 || !Number.isFinite(loss) || loss < 0 || loss >= 100) throw new Error('Thông số hệ thống không hợp lệ.');
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) throw new Error('Mốc thời gian không hợp lệ.');
     if (!Array.isArray(hourly?.time) || !Array.isArray(hourly.global_tilted_irradiance)) throw new Error('Thiếu dữ liệu bức xạ.');
     let irradiation = 0, covered = 0, previous = -Infinity;
     const hours = [];
     hourly.time.forEach((time, i) => {
       if (!Number.isFinite(time) || time <= previous) throw new Error('Mốc thời gian không hợp lệ.');
+      if (previous !== -Infinity && time - previous !== 3600) throw new Error('Mốc thời gian không hợp lệ.');
       previous = time;
       const overlap = Math.max(0, Math.min(time, end) - Math.max(time - 3600, start));
       if (!overlap) return;

@@ -1,14 +1,16 @@
+import { logger } from './lib/logger.mjs';
+import { createHttpHandler } from './lib/http-handler.mjs';
 import { RedisClient } from 'bun';
 import { createVisitorLogger } from './lib/visitor-log.mjs';
 import { createRedisForecastProxy } from './lib/redis-forecast.mjs';
 const redis = new RedisClient(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
   connectionTimeout: 2000, enableOfflineQueue: false, maxRetries: 2,
 });
-redis.onconnect = () => console.log('Shared forecast cache connected');
-redis.onclose = () => console.warn('Shared forecast cache disconnected; upstream requests are blocked');
-redis.connect().catch(() => console.warn('Redis unavailable; forecast API will return 503 until reconnected'));
-const forecast = createRedisForecastProxy({ redis, apiKey: process.env.OPEN_METEO_API_KEY || '' });
-const visitors = createVisitorLogger({ redis, secureCookie: process.env.COOKIE_SECURE === 'true' });
+redis.onconnect = () => logger.info('redis_connected');
+redis.onclose = () => logger.warn('redis_disconnected', { reason: 'upstream_blocked' });
+redis.connect().catch(() => logger.error('redis_connect_failed', { reason: 'forecast_unavailable' }));
+const forecast = createRedisForecastProxy({ redis, logger, apiKey: process.env.OPEN_METEO_API_KEY || '' });
+const visitors = createVisitorLogger({ redis, log: line => { const entry = JSON.parse(line); logger.info(entry.event, entry); }, warn: line => { const entry = JSON.parse(line); logger.warn(entry.event, entry); }, secureCookie: process.env.COOKIE_SECURE === 'true' });
 // Explicit public routes keep repository files outside the web root.
 const assets = new Map([
   ['/', 'index.html'],
@@ -26,25 +28,26 @@ const assets = new Map([
   ['/profile.js', 'profile.js'],
   ['/energy-ui.js', 'energy-ui.js'],
 ]);
-const server = Bun.serve({
-  hostname: '0.0.0.0',
-  port: Number(process.env.PORT || 5173),
-  async fetch(request) {
-    if (!['GET', 'HEAD'].includes(request.method)) {
-      return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
-    }
-    if (new URL(request.url).pathname === '/api/forecast') {
-      if (request.method !== 'GET') return new Response(null, { status: 405, headers: { Allow: 'GET' } });
-      return forecast.handle(request.url);
-    }
-    const asset = assets.get(new URL(request.url).pathname);
-    if (!asset) return new Response('Not found', { status: 404 });
-    const isPage = asset === 'index.html' && request.method === 'GET';
-    const cookie = isPage ? await visitors.visit(request) : null;
+const handle = createHttpHandler({ assets, forecast, visitors, logger,
+  fileResponse(asset, method, headers) {
     const file = Bun.file(new URL(`./dist/${asset}`, import.meta.url));
-    return new Response(request.method === 'HEAD' ? null : file, {
-      headers: { 'Content-Type': file.type, 'Cache-Control': isPage ? 'private, no-store' : 'no-cache', ...(cookie ? { 'Set-Cookie': cookie } : {}) },
-    });
+    return new Response(method === 'HEAD' ? null : file, { headers: { 'Content-Type': file.type, ...headers } });
   },
 });
-console.log(`Sol ready at ${server.url}`);
+try {
+  const server = Bun.serve({ hostname: '0.0.0.0', port: Number(process.env.PORT || 5173), fetch: handle });
+  logger.info('server_started', { host:'0.0.0.0', port:server.port });
+  let stopping = false;
+  for (const signal of ['SIGINT','SIGTERM']) process.on(signal, async () => {
+    if (stopping) return;
+    stopping = true;
+    logger.info('server_stopping', { signal });
+    await server.stop(true);
+    redis.close();
+    process.exit(0);
+  });
+} catch (error) {
+  logger.error('server_start_failed', { error_name:error.name, reason:'listen_failed' });
+  redis.close();
+  process.exitCode = 1;
+}

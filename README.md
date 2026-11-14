@@ -111,3 +111,32 @@ docker compose exec redis redis-cli XREVRANGE 'sol:{visitors}:events' + - COUNT 
 Stream giữ khoảng 10.000 sự kiện gần nhất; dấu đã thấy tự hết hạn sau 1 năm. Đặt `COOKIE_SECURE=true` khi phục vụ HTTPS qua reverse proxy. Khi URL request trực tiếp là HTTPS, Secure được bật tự động. Trang HTML dùng `private, no-store` để CDN không chia sẻ cookie giữa người dùng.
 
 Đây là nhận diện **trình duyệt bằng cookie**, không khẳng định thiết bị vật lý: xóa cookie, đổi trình duyệt hoặc ẩn danh có thể tạo thiết bị mới; User-Agent chỉ dùng phân loại gần đúng. Khi cookie bị chặn, mỗi lần vào có thể được tính mới. Redis lỗi không chặn trang: chờ tối đa 1 giây, ghi console cho ID mới với `storage: console_only`; có cảnh báo đã giới hạn tần suất. Log trùng/thiếu khi Redis lỗi hoặc request đồng thời trước khi cookie được thiết lập vẫn có thể xảy ra.
+
+
+## Log console JSON
+
+Tất cả log do ứng dụng server phát ra dùng JSON Lines: mỗi dòng một object, không pretty-print nhiều dòng. Chạy trực tiếp để tránh dòng thông báo thêm của `bun run`:
+
+```sh
+bun server.js
+# Chỉ giữ cảnh báo và lỗi:
+LOG_LEVEL=warn bun server.js
+```
+
+Schema chung: `timestamp` (UTC ISO), `level`, `service`, `event`. HTTP thêm `request_id`, `method`, `route`, `status`, `duration_ms`, `cache_status` khi có. Response có `X-Request-ID`; cùng ID được chuyển vào log thiết bị mới và lượt gọi upstream khởi tạo bởi request đó. Với request gộp, log upstream mang ID của người khởi tạo; mỗi người chờ vẫn có HTTP log riêng.
+
+```json
+{"timestamp":"2026-11-14T03:00:00.000Z","level":"info","service":"sol-sun-compass","event":"http_request","request_id":"example-request-id","method":"GET","route":"/api/forecast","status":200,"duration_ms":12.4,"cache_status":"hit"}
+```
+
+Sự kiện: `server_started`, `server_start_failed`, `server_stopping`, `redis_connected`, `redis_disconnected`, `redis_connect_failed`, `http_request`, `request_failed`, `weather_upstream_response`, `forecast_refresh_failed`, `new_device`, `visitor_log_unavailable`. Dùng `LOG_LEVEL=debug|info|warn|error` (mặc định info). Đầu ra stdout dùng được với Docker logs hoặc hệ thống thu thập log. Log không chứa URL/query đầy đủ, cookie, khóa API, mật khẩu Redis, GPS hoặc error stack. Đường dẫn không thuộc route đã biết ghi `unmatched`.
+
+### Kết quả rà soát 2026-11-14
+
+- `bun run test`: tất cả kiểm tra đạt, gồm phép tính, cache, profile, cảm biến giả lập, log JSON, route và tham chiếu DOM.
+- 17 file nguồn qua kiểm tra cú pháp.
+- Sửa tự động refresh lưu đè profile đang nhập dở; chặn tính với form chưa hợp lệ.
+- Chặn dữ liệu bức xạ có khoảng giờ sai hoặc khoảng tính không hợp lệ.
+- HTML HEAD cũng dùng private/no-store; lỗi xử lý request trả JSON 500 có mã đối chiếu.
+- Redis visitor log xóa dấu seen nếu thêm stream thất bại, để lần sau có thể thử ghi lại.
+- Chưa xác minh Redis integration, browser/mobile và cảm biến thật: sandbox không mở được socket. Không coi các test giả lập là xác minh production.

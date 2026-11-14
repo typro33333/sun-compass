@@ -28,6 +28,10 @@ energyForm.addEventListener('submit', event => {
   calculateEnergy();
 });
 async function calculateEnergy() {
+  if (!energyForm.checkValidity()) {
+    $('energy-status').textContent = 'Thông số hệ thống không hợp lệ.';
+    return;
+  }
   if (!locationReady) {
     $('energy-status').textContent = 'Cần cấp quyền GPS trước khi dự đoán điện mặt trời.';
     return;
@@ -96,7 +100,7 @@ globalThis.onSolarLocationChanged = () => {
   predictionStarted = true;
   profileLocationKey = key;
   lastPredictionDay = today();
-  if (savedProfile) saveProfile();
+  // Persist only on explicit Calculate; background refresh must not save draft inputs.
   lastPredictionAt = Date.now();
   calculateEnergy();
 };

@@ -25,3 +25,6 @@ const night = { hours: [{ time: time[0], kwh: 0 }, { time: time[1], kwh: 10 }], 
 const nightWeather = { time: time.slice(0, 2), cloud_cover: [100, 0], rain: [10, 0], showers: [0, 0] };
 assert.equal(energy.weatherReserve(nightWeather, night).kwh, 10);
 console.log('Reserve checks passed: cap, clear weather, missing data, no penalty for nighttime rain.');
+assert.throws(() => estimate({time:[start+1800,start+3600],global_tilted_irradiance:[500,500]},start,start+3600,11,20), /Mốc thời gian/);
+assert.throws(() => estimate(hourly,start,start,11,20), /Mốc thời gian/);
+console.log('Energy malformed-interval checks passed.');
