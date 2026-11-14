@@ -1,0 +1,11 @@
+.git
+.openai
+.env
+.env.*
+node_modules
+build
+tests
+README.md
+deployments
+*.log
+.DS_Store

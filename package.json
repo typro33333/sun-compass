@@ -5,6 +5,8 @@
     "dev": "bun --watch server.js",
     "start": "bun server.js",
     "test": "bun tests/solar.test.cjs && bun tests/weather.test.cjs && bun tests/energy.test.cjs && bun tests/profile.test.cjs && bun tests/sensor.test.cjs && bun tests/forecast-proxy.test.mjs && bun tests/forecast-client.test.cjs && bun tests/redis-forecast.test.mjs && bun tests/visitor-log.test.mjs && bun tests/logging.test.mjs && bun tests/static.test.mjs",
-    "test:redis": "bun tests/redis-integration.mjs"
+    "test:redis": "bun tests/redis-integration.mjs",
+    "build": "bun scripts/build.mjs",
+    "start:prod": "bun build/server.js"
   }
 }

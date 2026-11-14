@@ -67,7 +67,7 @@ Cần Bun và **Redis standalone 7.2+**. Dùng Docker Compose để chạy Redis
 
 ```sh
 cd sun-compass
-docker compose up -d redis
+docker compose -f deployments/compose.yaml up -d redis
 bun run dev
 ```
 
@@ -105,7 +105,7 @@ Mỗi GET `/` hoặc `/index.html` được kiểm tra cookie `sol_device_id` (U
 Xem khoảng 20 sự kiện mới nhất:
 
 ```sh
-docker compose exec redis redis-cli XREVRANGE 'sol:{visitors}:events' + - COUNT 20
+docker compose -f deployments/compose.yaml exec redis redis-cli XREVRANGE 'sol:{visitors}:events' + - COUNT 20
 ```
 
 Stream giữ khoảng 10.000 sự kiện gần nhất; dấu đã thấy tự hết hạn sau 1 năm. Đặt `COOKIE_SECURE=true` khi phục vụ HTTPS qua reverse proxy. Khi URL request trực tiếp là HTTPS, Secure được bật tự động. Trang HTML dùng `private, no-store` để CDN không chia sẻ cookie giữa người dùng.
@@ -140,3 +140,41 @@ Sự kiện: `server_started`, `server_start_failed`, `server_stopping`, `redis_
 - HTML HEAD cũng dùng private/no-store; lỗi xử lý request trả JSON 500 có mã đối chiếu.
 - Redis visitor log xóa dấu seen nếu thêm stream thất bại, để lần sau có thể thử ghi lại.
 - Chưa xác minh Redis integration, browser/mobile và cảm biến thật: sandbox không mở được socket. Không coi các test giả lập là xác minh production.
+
+
+## Build và chạy bằng Docker
+
+Từ thư mục `sun-compass/`:
+
+```sh
+bun run build
+bun run start:prod
+```
+
+Build tạo `build/server.js` (bundle backend cho Bun) và sao chép giao diện sang `build/dist/`. Không ghi đè mã nguồn trong `dist/`. Chạy local production cần Redis như cấu hình trước đó.
+
+Chạy cả app và Redis bằng Compose:
+
+```sh
+docker compose -f deployments/compose.yaml up -d --build
+docker compose -f deployments/compose.yaml logs -f app
+docker compose -f deployments/compose.yaml ps
+```
+
+Mở `http://localhost:5173`. App chờ Redis healthy, dùng `redis://redis:6379`, chạy non-root và xuất log JSON. Docker healthcheck gọi HEAD `/app.js`, không tạo log thiết bị mới. Redis vẫn giữ image `redis:8-alpine`, cổng và volume hiện có. Build dùng multi-stage với Bun 1.3.14, không đưa `.env`, Git hoặc credentials vào image.
+
+Biến Compose: `APP_PORT` (mặc định 5173), `LOG_LEVEL`, `COOKIE_SECURE`, `OPEN_METEO_API_KEY`. Có thể truyền file cấu hình từ thư mục dự án:
+
+```sh
+docker compose --env-file .env -f deployments/compose.yaml up -d --build
+```
+
+`REDIS_URL` bên trong container được Compose đặt theo tên service; không dùng localhost. Đặt `COOKIE_SECURE=true` khi phục vụ HTTPS qua reverse proxy. Compose không tự cấp TLS; GPS/cảm biến trên điện thoại vẫn cần URL HTTPS.
+
+Dừng dịch vụ mà giữ dữ liệu Redis:
+
+```sh
+docker compose -f deployments/compose.yaml down
+```
+
+Xác minh hiện tại: Bun build, toàn bộ test, sao chép asset và `docker compose config --quiet` đã đạt. Chưa build/chạy container được trong sandbox vì Docker bị chặn ghi build-state ở `~/.docker/buildx/`.

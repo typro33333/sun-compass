@@ -1,4 +1,27 @@
 services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-5173}:5173"
+    environment:
+      NODE_ENV: production
+      PORT: "5173"
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      OPEN_METEO_API_KEY: ${OPEN_METEO_API_KEY:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
   redis:
     image: redis:8-alpine
     command: redis-server --appendonly yes
