@@ -667,6 +667,7 @@ solTranslations.push(['Mặc định UTC+7. Có thể chỉnh múi giờ trong m
     observe();
   });
   function observe() {
+    if (language !== 'en') return;
     observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-label','aria-valuetext','title'] });
   }
   function apply() {

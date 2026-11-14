@@ -29,7 +29,7 @@ node --check dist/app.js
 - Bật la bàn thiết bị trên điện thoại và giữ máy nằm phẳng; nếu không có cảm biến hướng tuyệt đối, dùng chế độ Bắc cố định.
 - Bán kính trên biểu đồ biểu thị độ cao: đường tròn ngoài là đường chân trời, tâm là thiên đỉnh. Khi mặt trời ở dưới chân trời, điểm màu xám nằm ở vành ngoài theo phương vị.
 
-Tính toán gần đúng theo [NOAA](https://www.gml.noaa.gov/grad/solcalc/solareqns.PDF), ngưỡng mọc/lặn −0.833°. Không tính địa hình hay vật cản; cảm biến có thể bị nhiễu từ. Tọa độ được gửi tới API Open-Meteo để lấy thời tiết; phép tính mặt trời vẫn chạy trong trình duyệt. Font Google là tài nguyên tùy chọn, có font hệ thống dự phòng.
+Tính toán gần đúng theo [NOAA](https://www.gml.noaa.gov/grad/solcalc/solareqns.PDF), ngưỡng mọc/lặn −0.833°. Không tính địa hình hay vật cản; cảm biến có thể bị nhiễu từ. Tọa độ được gửi tới API Open-Meteo để lấy thời tiết; phép tính mặt trời vẫn chạy trong trình duyệt. Giao diện dùng font hệ thống để tránh tải font bên ngoài.
 
 `.openai/hosting.json` hiện vẫn là cấu hình hosting tĩnh cũ và chưa hỗ trợ API proxy mới. Muốn triển khai Sites phải chuyển sang server/Worker hoặc định tuyến `/api/forecast` về backend Bun trước; không xuất bản chỉ thư mục `dist/`.
 
@@ -151,7 +151,7 @@ bun run build
 bun run start:prod
 ```
 
-Build tạo `build/server.js` (bundle backend cho Bun) và sao chép giao diện sang `build/dist/`. Không ghi đè mã nguồn trong `dist/`. Chạy local production cần Redis như cấu hình trước đó.
+Build tạo `build/server.js` (bundle backend cho Bun) và đóng gói giao diện đã minify vào `build/dist/`. Không ghi đè mã nguồn trong `dist/`. Chạy local production cần Redis như cấu hình trước đó.
 
 Chạy cả app và Redis bằng Compose:
 
@@ -190,3 +190,28 @@ Khi đã nhận hướng Bắc hợp lệ, sự kiện chuyển động tương 
 ### Mobile và giữ hướng la bàn
 
 Tắt hoặc mất cảm biến giữ heading cuối của la bàn 2D và góc nhìn 3D đã xem, không quay về Bắc mặc định. Nhãn hiển thị “Giữ hướng”; bật lại sẽ tiếp tục cập nhật theo điện thoại. Trên màn hình tối đa 800px, thứ tự DOM là dự đoán điện → mô phỏng trong ngày → nội dung còn lại; quay về desktop sẽ khôi phục bố cục thường. GPS thành công chỉ hiện trạng thái đã lấy vị trí, không hiện sai số mét. Giải thích chấm vàng nằm trong mục mở rộng dưới Mặt trời mọc. Icon nút dùng SVG mask và favicon dùng `dist/favicon.svg`.
+
+
+## Đóng gói mã production
+
+`bun run build` gộp các script giao diện theo đúng thứ tự thành `build/dist/app.js`, minify tên biến/cú pháp/khoảng trắng, nén CSS và giữ script theme riêng để tránh nháy sáng lúc tải trang. Không xuất source map. Server production chỉ phục vụ HTML, bundle app, theme, CSS và favicon; không mở các đường dẫn script nguồn riêng. Docker chỉ chép output đã build vào image runtime.
+
+```sh
+bun run test:build
+bun run start:prod
+# Hoặc build lại Docker:
+docker compose -f deployments/compose.yaml up -d --build
+```
+
+`bun run dev` và `bun run start` vẫn chạy nguồn dễ đọc để phát triển. Minify không mã hóa JavaScript: trình duyệt phải tải và chạy mã, nên DevTools vẫn có thể xem/pretty-print. API key, credentials Redis, quota và cache phía server không được đưa vào frontend. Không nhúng bí mật vào JavaScript, dù mã đã nén.
+
+
+## Tối ưu tải trang mobile
+
+Bản build production dùng tên asset có hash nội dung và `Cache-Control: public, max-age=31536000, immutable`. HTML vẫn `private, no-store` vì cookie thiết bị; `/app.js` là alias healthcheck với `no-cache`. Khi build mới thay đổi nội dung, HTML trỏ sang hash mới. Chỉ các route trong manifest mới được phục vụ.
+
+Build tạo sẵn Brotli (`.br`) và Gzip (`.gz`); server chọn theo `Accept-Encoding`, giữ Content-Type gốc, gửi `Vary: Accept-Encoding` và xử lý HEAD. Reverse proxy cần giữ các header này và không nén lại body đã có Content-Encoding. Không cần nén runtime cho từng request.
+
+Font hệ thống thay Google Fonts `@import`, bỏ request DNS/font/CSS bên ngoài. Preload bundle app từ head. Log visitor được chuẩn bị cookie đồng bộ nhưng ghi Redis ở nền, không làm chậm HTML; trong trường hợp process bị dừng ngay sau response, log nền có thể chưa hoàn tất. Quỹ đạo 2D cache theo ngày/vị trí/múi giờ; chỉ chiếu lại khi đổi hướng. Chế độ tiếng Việt không chạy MutationObserver dịch trên mọi lần cập nhật SVG.
+
+Kiểm tra bằng `bun run test:build`: startup bundle/GPS/thanh giờ, giải nén Brotli/Gzip, đàm phán q=0, cache hash và HTML không chờ Redis. Số đo build hiện tại: app khoảng 49,7 KB → 15,4 KB Brotli; CSS 29,7 KB → 5,7 KB. Chưa xác minh điểm Lighthouse/PageSpeed hay Core Web Vitals trên website đã deploy. Liên kết báo cáo người dùng gửi chưa truy cập được từ môi trường thực thi; cần chạy lại PageSpeed sau khi deploy để so sánh.

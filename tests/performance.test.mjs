@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { readdir, readFile } from 'node:fs/promises';
+import { brotliDecompressSync, gunzipSync } from 'node:zlib';
+import { createStaticResponse, acceptedEncodings } from '../lib/static-response.mjs';
+import { createHttpHandler } from '../lib/http-handler.mjs';
+import { createVisitorLogger } from '../lib/visitor-log.mjs';
+assert.deepEqual(acceptedEncodings('br;q=0, gzip;q=1'), ['gzip']);
+assert.deepEqual(acceptedEncodings('br;q=0, *;q=1'), ['gzip']);
+const base = new URL('../build/dist/',import.meta.url), names = await readdir(base);
+const app = names.find(name=>/^app\.[a-f0-9]{12}\.js$/.test(name));
+const serve = createStaticResponse(base);
+const raw = await readFile(new URL(app,base));
+for (const encoding of ['br','gzip']) {
+  const response = await serve(app,'GET',{},new Request('https://test/'+app,{headers:{'Accept-Encoding':encoding}}));
+  assert.equal(response.headers.get('content-encoding'),encoding);
+  const bytes=Buffer.from(await response.arrayBuffer());
+  assert.deepEqual(encoding==='br'?brotliDecompressSync(bytes):gunzipSync(bytes),raw);
+  assert(bytes.length<raw.length);
+}
+const plain=await serve(app,'HEAD',{},new Request('https://test/'+app,{headers:{'Accept-Encoding':'br;q=0,gzip;q=0'}}));
+assert.equal(plain.headers.get('content-encoding'),null);assert.equal(await plain.text(),'');
+const logger={info(){},warn(){},error(){}};
+let resolveRedis;
+const visitors=createVisitorLogger({redis:{send:()=>new Promise(resolve=>{resolveRedis=resolve;})},log(){},warn(){},timeoutMs:1000});
+const handler=createHttpHandler({assets:new Map([['/','index.html'],['/'+app,app],['/app.js',app]]),visitors,logger,fileResponse:serve});
+const page=await Promise.race([handler(new Request('https://test/')),new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error('HTML waited for Redis')),250);timer.unref();})]);
+assert.equal(page.status,200);assert.match(page.headers.get('set-cookie'),/sol_device_id=/);resolveRedis(1);
+const hashed=await handler(new Request('https://test/'+app));assert.match(hashed.headers.get('cache-control'),/immutable/);
+const alias=await handler(new Request('https://test/app.js'));assert.equal(alias.headers.get('cache-control'),'no-cache');
+const css=await readFile(new URL(names.find(n=>/^style\.[a-f0-9]{12}\.css$/.test(n)),base),'utf8');assert(!css.includes('fonts.googleapis.com'));
+console.log('Performance checks passed: HTML does not wait for Redis; Brotli/Gzip round-trip, q=0 handling, immutable hashes and no remote font.');

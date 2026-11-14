@@ -22,6 +22,7 @@ const fmt=m=>m===null?'—':`${String(Math.floor(Math.round(m)/60)%24).padStart(
 const direction=a=>['B','ĐB','Đ','ĐN','N','TN','T','TB'][Math.round(a/45)%8];
 const point=(a,r)=>[300+r*Math.sin((a-heading)*R),300-r*Math.cos((a-heading)*R)];
 const line=(a,r1,r2,color,width=1)=>{const p=point(a,r1),q=point(a,r2);return `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${color}" stroke-width="${width}"/>`;};
+let dailyOrbitKey = '', dailyOrbit = [];
 function draw(){
  if (!locationReady) return;
  const day=$('date').value,p=Solar.position(day,minute,lat,lon,offset);
@@ -29,7 +30,12 @@ function draw(){
  for(let a=0;a<360;a+=3)dial+=line(a,a%30===0?218:224,232,a%30===0?'#98a58e':'#cfd6c5',a%30===0?1.5:1);
  for(let a=0;a<360;a+=30){const [x,y]=point(a,201);dial+=`<text x="${x}" y="${y+3}" text-anchor="middle" font-size="9" fill="#9da693">${a}°</text>`;}
  ['B','Đ','N','T'].forEach((d,i)=>{const [x,y]=point(i*90,260);dial+=`<text x="${x}" y="${y+6}" text-anchor="middle" font-size="19" font-weight="500" fill="${i===0?'#c18d53':'#687e6a'}">${d}</text>`;});$('dial').innerHTML=dial;
- let path='',pen=false;for(let m=0;m<=1440;m+=4){const s=Solar.position(day,m,lat,lon,offset);if(s.altitude<-.833){pen=false;continue;}const [x,y]=point(s.azimuth,210*(90-Math.max(0,s.altitude))/90);path+=`${pen?'L':'M'}${x},${y} `;pen=true;}
+ const orbitKey = `${day},${lat},${lon},${offset}`;
+ if (orbitKey !== dailyOrbitKey) {
+   dailyOrbitKey = orbitKey;
+   dailyOrbit = Array.from({ length: 361 }, (_, i) => Solar.position(day,i*4,lat,lon,offset));
+ }
+ let path='',pen=false;for(const s of dailyOrbit){if(s.altitude<-.833){pen=false;continue;}const [x,y]=point(s.azimuth,210*(90-Math.max(0,s.altitude))/90);path+=`${pen?'L':'M'}${x},${y} `;pen=true;}
  let plot=`<path d="${path}" fill="none" stroke="#c2ae72" stroke-width="1.6" stroke-dasharray="4 5"/>`;
  [[events.rise,'#6b977d','MỌC'],[events.set,'#cb8564','LẶN']].forEach(([m,c,t])=>{if(m===null)return;const s=Solar.position(day,m,lat,lon,offset),[x,y]=point(s.azimuth,210),label=point(s.azimuth,177);plot+=line(s.azimuth,20,210,c,.7)+`<circle cx="${x}" cy="${y}" r="5" fill="${c}"/><text x="${label[0]}" y="${label[1]-9}" font-size="9" text-anchor="middle" fill="${c}">${t}</text>`;});
  const [x,y]=point(p.azimuth,210*(90-Math.max(0,p.altitude))/90);plot+=line(p.azimuth,17,210,'#d2aa4f',1);plot+=`<circle cx="${x}" cy="${y}" r="25" fill="#f3cb66" opacity=".15"/><circle cx="${x}" cy="${y}" r="14" fill="${p.altitude>=-.833?'#efc15b':'#a4b0b7'}" stroke="white" stroke-width="4" filter="url(#shadow)"/>`;$('plot').innerHTML=plot;

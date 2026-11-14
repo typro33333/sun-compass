@@ -7,6 +7,7 @@
     "test": "bun tests/solar.test.cjs && bun tests/weather.test.cjs && bun tests/energy.test.cjs && bun tests/profile.test.cjs && bun tests/sensor.test.cjs && bun tests/forecast-proxy.test.mjs && bun tests/forecast-client.test.cjs && bun tests/redis-forecast.test.mjs && bun tests/visitor-log.test.mjs && bun tests/logging.test.mjs && bun tests/static.test.mjs && bun tests/scene.test.cjs",
     "test:redis": "bun tests/redis-integration.mjs",
     "build": "bun scripts/build.mjs",
-    "start:prod": "bun build/server.js"
+    "start:prod": "bun build/server.js",
+    "test:build": "bun run build && bun tests/build.test.cjs && bun tests/performance.test.mjs"
   }
 }

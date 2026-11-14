@@ -1,3 +1,4 @@
+import { createStaticResponse } from './lib/static-response.mjs';
 import { logger } from './lib/logger.mjs';
 import { createHttpHandler } from './lib/http-handler.mjs';
 import { RedisClient } from 'bun';
@@ -12,7 +13,7 @@ redis.connect().catch(() => logger.error('redis_connect_failed', { reason: 'fore
 const forecast = createRedisForecastProxy({ redis, logger, apiKey: process.env.OPEN_METEO_API_KEY || '' });
 const visitors = createVisitorLogger({ redis, log: line => { const entry = JSON.parse(line); logger.info(entry.event, entry); }, warn: line => { const entry = JSON.parse(line); logger.warn(entry.event, entry); }, secureCookie: process.env.COOKIE_SECURE === 'true' });
 // Explicit public routes keep repository files outside the web root.
-const assets = new Map([
+const assets = new Map(process.env.SOL_BUILD_ASSETS ? JSON.parse(process.env.SOL_BUILD_ASSETS) : [
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
   ['/style.css', 'style.css'],
@@ -30,10 +31,7 @@ const assets = new Map([
   ['/energy-ui.js', 'energy-ui.js'],
 ]);
 const handle = createHttpHandler({ assets, forecast, visitors, logger,
-  fileResponse(asset, method, headers) {
-    const file = Bun.file(new URL(`./dist/${asset}`, import.meta.url));
-    return new Response(method === 'HEAD' ? null : file, { headers: { 'Content-Type': file.type, ...headers } });
-  },
+  fileResponse: createStaticResponse(new URL('./dist/', import.meta.url)),
 });
 try {
   const server = Bun.serve({ hostname: '0.0.0.0', port: Number(process.env.PORT || 5173), fetch: handle });
