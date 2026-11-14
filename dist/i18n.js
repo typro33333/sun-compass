@@ -1,6 +1,6 @@
 const solTranslations = [
   ['Cho phép vị trí để xem hướng nắng, thời tiết và dự đoán điện mặt trời tại nơi bạn đang đứng.', 'Allow location access to see sun directions, weather and solar energy estimates where you are.'],
-  ['Chỉ xin quyền khi bạn bấm nút. Tọa độ được gửi đến máy chủ để lấy dự báo thời tiết theo khu vực khoảng 2 km.', 'Permission is requested only when you press the button. Coordinates are sent to the server to fetch weather forecasts for an area of approximately 2 km.'],
+  ['Tọa độ được gửi đến máy chủ để lấy dự báo thời tiết theo khu vực khoảng 2 km.', 'Coordinates are sent to the server to fetch weather forecasts for an area of approximately 2 km.'],
   ['Bấm Dùng vị trí của tôi để bắt đầu.', 'Select Use my location to get started.'],
   [
     "Sol — La bàn mặt trời",
