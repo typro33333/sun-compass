@@ -617,6 +617,29 @@ solTranslations.push(
  ['Múi giờ theo thiết bị; bạn có thể điều chỉnh.', 'The UTC offset follows your device; you can adjust it.']
 );
 solTranslations.push(['Mặc định UTC+7. Có thể chỉnh múi giờ trong menu.', 'Default UTC+7. Adjust the UTC offset in the menu.']);
+solTranslations.push(
+ ['Tính toán điện mặt trời ↗', 'Solar calculator ↗'],
+ ['← Về la bàn', '← Back to compass'],
+ ['Đặt pin. Đón trọn nắng.', 'Place panels. Follow the sunlight.'],
+ ['Bố trí trên mái, khám phá ánh sáng và dự đoán điện năng trong một không gian riêng.', 'Plan your roof, explore sunlight and estimate energy in one dedicated space.'],
+ ['THIẾT KẾ HỆ PIN • 3D', '3D SOLAR PLANNER'],
+ ['Mái nhà của bạn, theo hướng nắng.', 'Your roof, oriented to the sun.'],
+ ['Đón nắng trực tiếp', 'Direct sunlight capture'],
+ ['Góc tia nắng với pháp tuyến', 'Angle to panel normal'],
+ ['Số lầu trên tầng trệt', 'Floors above ground floor'],
+ ['+ Thêm 1 lầu', '+ Add one floor'],
+ ['Chỉ tầng trệt', 'Ground floor only'],
+ [' lầu + tầng trệt', ' floors + ground floor'],
+ ['Mỗi tầng cao 3,2 m · mái phẳng 8 × 10 m.', '3.2 m per floor · flat roof 8 × 10 m.'],
+ ['Hướng mặt tấm pin', 'Panel bearing'],
+ ['Độ nghiêng so với mái', 'Tilt above the roof'],
+ ['Dịch trên mái: Tây ↔ Đông (m)', 'Roof position: west ↔ east (m)'],
+ ['Dịch trên mái: Nam ↔ Bắc (m)', 'Roof position: south ↔ north (m)'],
+ ['Gợi ý hướng & góc nghiêng ngày này', 'Suggest bearing & tilt for this day'],
+ ['Kéo để xoay · ↑ ↓ ← →', 'Drag to rotate · ↑ ↓ ← →'],
+ ['Thông số đã đổi. Bấm tính để cập nhật sản lượng.', 'Settings changed. Calculate again to update the estimate.'],
+ ['Đang sử dụng tọa độ nhập thủ công.', 'Using manually entered coordinates.']
+);
 (() => {
   let language = 'vi';
   try { if (localStorage.getItem('sol-language') === 'en') language = 'en'; } catch {}
@@ -676,11 +699,12 @@ solTranslations.push(['Mặc định UTC+7. Có thể chỉnh múi giờ trong m
   function apply() {
     observer.disconnect();
     document.documentElement.lang = language;
-    document.title = language === 'en' ? 'Sol — Sun compass' : 'Sol — La bàn mặt trời';
+    document.title = globalThis.isSolarCalculator ? (language === 'en' ? 'Sol — Solar planner' : 'Sol — Tính toán & bố trí pin mặt trời') : (language === 'en' ? 'Sol — Sun compass' : 'Sol — La bàn mặt trời');
     walk(document.body);
     document.getElementById('language-select').value = language;
     observe();
     globalThis.renderSolarScene?.();
+    globalThis.renderPanelPlanner?.();
   }
   document.getElementById('language-select').addEventListener('change', event => {
     language = event.target.value === 'en' ? 'en' : 'vi';

@@ -11,6 +11,17 @@ bun run dev
 
 Mở http://localhost:5173. GPS và cảm biến yêu cầu HTTPS hoặc localhost cùng quyền trình duyệt. Để thử trên điện thoại, chạy máy chủ Bun sau reverse proxy hoặc tunnel HTTPS. Chỉ upload `dist/` sẽ không đủ vì thời tiết và dự báo điện cần `/api/forecast`.
 
+## Trang tính toán riêng
+
+- `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
+- `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): thời tiết hiện tại, dự báo điện và bố trí pin 3D. Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
+- Mô hình mái phẳng 8 × 10 m, tầng trệt + 0–3 lầu, mỗi tầng 3,2 m. Thêm từng lầu, xoay góc nhìn bằng kéo/phím mũi tên, chỉnh hướng mặt pin 0–360°, nghiêng 0–90° và dịch cụm pin trên mái.
+- Hướng/góc nghiêng được đồng bộ với biểu mẫu dự báo. Khi chỉnh thông số, kết quả cũ bị ẩn và yêu cầu đang chờ bị hủy; bấm tính để lấy dự báo mới.
+- Chọn ngày/tháng và vị trí, kéo thanh thời gian hoặc phát từ bình minh tới hoàng hôn. Có thể nhập tọa độ thủ công nếu GPS bị từ chối. Các phép tính hình học vẫn chạy khi API thời tiết không khả dụng.
+- Gợi ý góc lắp tìm trên lưới 5° theo quỹ đạo ngày đã chọn, lấy mẫu 10 phút, gia quyền góc tới theo sin độ cao mặt trời. Đây là gợi ý hình học trong ngày, chưa tối ưu sản lượng cả năm.
+- 6 tấm là minh họa, không suy ra công suất kWp; công suất vẫn nhập riêng. Bóng đổ trên nền và tỷ lệ cos góc tới chỉ minh họa ánh sáng trực tiếp. Chưa mô hình hóa bóng che vật cản/dãy pin, kết cấu hay mái nghiêng. Độ cao nhà và dịch chuyển trên mái không thay đổi dự báo kWh.
+- Dự báo điện/thời tiết vẫn áp dụng cho hôm nay, độc lập với ngày mô phỏng 3D. Không thêm thư viện hoặc dịch vụ 3D bên ngoài.
+
 ## Kiểm tra
 
 ```sh
@@ -88,7 +99,18 @@ Compose bật AOF và volume để giữ cache/quota qua restart; `maxmemory-pol
 
 API miễn phí Open-Meteo dành cho phi thương mại, có quota riêng và có thể tính một request nhiều đơn vị. Đặt `OPEN_METEO_API_KEY` trong backend để dùng customer endpoint nếu cần. Xem [pricing](https://open-meteo.com/en/pricing) và [terms](https://open-meteo.com/en/terms). Redis không loại bỏ chi phí cho các ô vị trí hoàn toàn khác nhau.
 
-### Kiểm tra
+### Trang tính toán riêng
+
+- `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
+- `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): thời tiết hiện tại, dự báo điện và bố trí pin 3D. Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
+- Mô hình mái phẳng 8 × 10 m, tầng trệt + 0–3 lầu, mỗi tầng 3,2 m. Thêm từng lầu, xoay góc nhìn bằng kéo/phím mũi tên, chỉnh hướng mặt pin 0–360°, nghiêng 0–90° và dịch cụm pin trên mái.
+- Hướng/góc nghiêng được đồng bộ với biểu mẫu dự báo. Khi chỉnh thông số, kết quả cũ bị ẩn và yêu cầu đang chờ bị hủy; bấm tính để lấy dự báo mới.
+- Chọn ngày/tháng và vị trí, kéo thanh thời gian hoặc phát từ bình minh tới hoàng hôn. Có thể nhập tọa độ thủ công nếu GPS bị từ chối. Các phép tính hình học vẫn chạy khi API thời tiết không khả dụng.
+- Gợi ý góc lắp tìm trên lưới 5° theo quỹ đạo ngày đã chọn, lấy mẫu 10 phút, gia quyền góc tới theo sin độ cao mặt trời. Đây là gợi ý hình học trong ngày, chưa tối ưu sản lượng cả năm.
+- 6 tấm là minh họa, không suy ra công suất kWp; công suất vẫn nhập riêng. Bóng đổ trên nền và tỷ lệ cos góc tới chỉ minh họa ánh sáng trực tiếp. Chưa mô hình hóa bóng che vật cản/dãy pin, kết cấu hay mái nghiêng. Độ cao nhà và dịch chuyển trên mái không thay đổi dự báo kWh.
+- Dự báo điện/thời tiết vẫn áp dụng cho hôm nay, độc lập với ngày mô phỏng 3D. Không thêm thư viện hoặc dịch vụ 3D bên ngoài.
+
+## Kiểm tra
 
 ```sh
 bun run test

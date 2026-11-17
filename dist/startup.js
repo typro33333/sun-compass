@@ -19,6 +19,7 @@
   const mobile = window.matchMedia('(max-width: 800px)');
   function arrangeMobile() {
     closeMenu();
+    if (globalThis.isSolarCalculator) return;
     const main = document.querySelector('main');
     const energy = $('energy-preview');
     const timeline = document.querySelector('.timeline-card');

@@ -1,13 +1,23 @@
+(() => {
+if (!globalThis.isSolarCalculator) return;
 const energyDialog = document.getElementById('energy-dialog');
 const energyForm = document.getElementById('energy-form');
 let energyRequest = 0, energyController, lastPredictionAt = 0;
-$('energy-open').onclick = () => {
-  energyDialog.showModal();
+globalThis.invalidateSolarPrediction = () => {
+  energyRequest++;
+  energyController?.abort();
+  $('energy-calculate').disabled = false;
+  $('energy-result').hidden = true;
+  $('energy-preview').hidden = true;
+  $('energy-status').textContent = 'Thông số đã đổi. Bấm tính để cập nhật sản lượng.';
+};
+energyForm.addEventListener('input', globalThis.invalidateSolarPrediction);
+$('energy-preview-open').onclick = () => {
+  energyDialog.scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('energy-location').textContent = `${$('location-name').textContent} · ${lat.toFixed(4)}, ${lon.toFixed(4)} · UTC${offset >= 0 ? '+' : ''}${offset}`;
   if (!$('energy-status').textContent) $('energy-status').textContent = 'Nhập thông số hệ thống để dự đoán tổng điện năng hôm nay.';
 };
-$('energy-close').onclick = () => energyDialog.close();
-$('energy-preview-open').onclick = () => $('energy-open').click();
+$('energy-close').hidden = true;
 let savedProfile = null;
 try { savedProfile = SolarProfile.read(document.cookie); } catch {}
 function saveProfile() {
@@ -38,6 +48,7 @@ async function calculateEnergy() {
   }
   const kwp = Number($('energy-kwp').value), loss = Number($('energy-loss').value);
   const tilt = Number($('energy-tilt').value), azimuth = Number($('energy-azimuth').value);
+  $('energy-location').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)} · UTC${offset >= 0 ? '+' : ''}${offset}`;
   const day = today();
   // The selected UTC offset defines today's midnight; ignore simulation date/time.
   const start = Date.parse(`${day}T00:00:00Z`) / 1000 - offset * 3600, end = start + 86400;
@@ -112,3 +123,5 @@ setInterval(() => {
 }, 60000);
 
 $('energy-reserve').addEventListener('change', () => { if (locationReady && energyForm.checkValidity()) calculateEnergy(); });
+
+})();

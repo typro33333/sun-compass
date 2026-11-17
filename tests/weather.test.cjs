@@ -8,6 +8,7 @@ function get(id) {
 }
 let fail = false;
 const context = {
+  isSolarCalculator: true,
   document: { getElementById: get, hidden: false },
   Solar: require('../dist/solar.js'), Date, Math, URLSearchParams, AbortController,
   setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {},
@@ -31,5 +32,9 @@ vm.createContext(context);
   assert.equal(get('clouds').innerHTML, '');
   assert.equal(get('weather-rain').textContent, 'Mưa: —');
   assert.match(get('weather-status').textContent, /Không lấy được/);
+  context.isSolarCalculator = false;
+  get('weather-status').textContent = 'home';
+  await vm.runInContext('loadWeather(true)', context);
+  assert.equal(get('weather-status').textContent, 'home', 'Home must not request weather');
   console.log('Weather checks passed: live payload, rain rendering, simulated date, network failure.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

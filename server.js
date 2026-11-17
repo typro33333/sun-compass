@@ -16,6 +16,11 @@ const visitors = createVisitorLogger({ redis, log: line => { const entry = JSON.
 const assets = new Map(process.env.SOL_BUILD_ASSETS ? JSON.parse(process.env.SOL_BUILD_ASSETS) : [
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
+  ['/sol-calculartor', 'index.html'],
+  ['/sol-calculartor/', 'index.html'],
+  ['/calculator-page.js', 'calculator-page.js'],
+  ['/panel-geometry.js', 'panel-geometry.js'],
+  ['/panel-planner.js', 'panel-planner.js'],
   ['/style.css', 'style.css'],
   ['/favicon.svg', 'favicon.svg'],
   ['/theme.js', 'theme.js'],

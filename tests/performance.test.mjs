@@ -22,9 +22,13 @@ assert.equal(plain.headers.get('content-encoding'),null);assert.equal(await plai
 const logger={info(){},warn(){},error(){}};
 let resolveRedis;
 const visitors=createVisitorLogger({redis:{send:()=>new Promise(resolve=>{resolveRedis=resolve;})},log(){},warn(){},timeoutMs:1000});
-const handler=createHttpHandler({assets:new Map([['/','index.html'],['/'+app,app],['/app.js',app]]),visitors,logger,fileResponse:serve});
+const handler=createHttpHandler({assets:new Map([['/','index.html'],['/sol-calculartor','index.html'],['/sol-calculartor/','index.html'],['/'+app,app],['/app.js',app]]),visitors,logger,fileResponse:serve});
 const page=await Promise.race([handler(new Request('https://test/')),new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error('HTML waited for Redis')),250);timer.unref();})]);
 assert.equal(page.status,200);assert.match(page.headers.get('set-cookie'),/sol_device_id=/);resolveRedis(1);
+for (const route of ['/sol-calculartor','/sol-calculartor/']) {
+  const response=await handler(new Request('https://test'+route,{method:'HEAD'}));
+  assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'private, no-store');
+}
 const hashed=await handler(new Request('https://test/'+app));assert.match(hashed.headers.get('cache-control'),/immutable/);
 const alias=await handler(new Request('https://test/app.js'));assert.equal(alias.headers.get('cache-control'),'no-cache');
 const css=await readFile(new URL(names.find(n=>/^style\.[a-f0-9]{12}\.css$/.test(n)),base),'utf8');assert(!css.includes('fonts.googleapis.com'));

@@ -43,8 +43,9 @@ function draw(){
  $('day-status').textContent=p.altitude>=-.833?'Ban ngày':'Ban đêm';$('phase').textContent=p.altitude<-.833?'Dưới đường chân trời':p.altitude<6?'Ánh nắng sát chân trời':'Nắng ban ngày';$('time').value=minute;$('time').setAttribute('aria-valuetext',fmt(minute));
  updateWeatherVisibility();
  globalThis.renderSolarScene?.();
+ globalThis.renderPanelPlanner?.();
 }
-function refresh(){if (!locationReady) return;globalThis.onSolarLocationChanged?.();syncMonth();loadWeather();events=Solar.events($('date').value,lat,lon,offset);for(const [key,m] of [['rise',events.rise],['set',events.set]]){$(key+'-time').textContent=fmt(m);$(key+'-dir').textContent=m===null?'Không xảy ra':(()=>{const a=Solar.position($('date').value,m,lat,lon,offset).azimuth;return `${Math.round(a)}° ${direction(a)}`;})();}$('daylength').textContent=`${Math.floor(events.daylight/60)} giờ ${events.daylight%60} phút`;draw();}
+function refresh(){if (!locationReady) return;globalThis.onSolarLocationChanged?.();syncMonth();loadWeather();events=Solar.events($('date').value,lat,lon,offset);globalThis.onSolarDayChanged?.();for(const [key,m] of [['rise',events.rise],['set',events.set]]){$(key+'-time').textContent=fmt(m);$(key+'-dir').textContent=m===null?'Không xảy ra':(()=>{const a=Solar.position($('date').value,m,lat,lon,offset).azimuth;return `${Math.round(a)}° ${direction(a)}`;})();}$('daylength').textContent=`${Math.floor(events.daylight/60)} giờ ${events.daylight%60} phút`;draw();}
 function stop(){clearInterval(playing);playing=null;$('play').textContent='Tự chạy';$('play').dataset.playing='false';}
 $('time').addEventListener('input',e=>{stop();minute=+e.target.value;draw();});
 $('date').addEventListener('change',()=>{if(!$('date').value){$('date').value=today();}refresh();});
@@ -92,7 +93,7 @@ function renderWeather(cloudCover, raining) {
   updateWeatherVisibility();
 }
 async function loadWeather(force = false) {
-  if (!locationReady) return;
+  if (!globalThis.isSolarCalculator || !locationReady) return;
   const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
   if (!force && key === weatherKey && Date.now() - weatherUpdated < 600000) return;
   weatherKey = key;
@@ -136,6 +137,6 @@ async function loadWeather(force = false) {
     clearTimeout(timeout);
   }
 }
-$('weather-retry').onclick = () => loadWeather(true);
+if ($('weather-retry')) $('weather-retry').onclick = () => loadWeather(true);
 setInterval(() => { if (!document.hidden) loadWeather(); }, 60000);
 refresh();

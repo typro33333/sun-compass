@@ -37,7 +37,7 @@ let productionHtml = html.replace(/<script src="([^"]+)"><\/script>/g, (tag, nam
   return '<script src="app.js"></script>';
 });
 await cp(new URL('dist/favicon.svg', root), new URL('dist/favicon.svg', output));
-const routes = [['/','index.html'], ['/index.html','index.html']];
+const routes = [['/','index.html'], ['/index.html','index.html'], ['/sol-calculartor','index.html'], ['/sol-calculartor/','index.html']];
 const publicFiles = ['index.html'];
 for (const name of ['theme.js','app.js','style.css','favicon.svg']) {
   const bytes = await readFile(new URL('dist/' + name, output));
