@@ -25,7 +25,7 @@ function node(id) {
   return nodes.get(id);
 }
 for (const match of html.matchAll(/id="([^"]+)"[^>]*?(?:value="([^"]*)")?[^>]*>/g)) node(match[1]);
-for (const [id,value] of Object.entries({'energy-kwp':'11','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','panel-floors':'1','panel-x':'0','panel-z':'0'})) node(id).value=value;
+for (const [id,value] of Object.entries({'energy-kwp':'11','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
 let gpsSuccess;
 const context = { document:{ body:node('body'),documentElement:node('html'),cookie:'',hidden:false,createElement:node,getElementById:node,querySelector:node,addEventListener(){} },
   localStorage:{getItem:()=>null,setItem(){}},sessionStorage:{getItem:()=>null,setItem(){}},location:{protocol:'https:',pathname},
@@ -47,13 +47,33 @@ node('time').input({target:{value:'600'}});
 assert.equal(node('selected-time').textContent,'10:00');
 if (pathname === '/sol-calculartor') {
   assert.equal(node('panel-planner').hidden,false);
-  assert.equal(node('.compass-card').hidden,true);
+  assert.equal(node('.compass-card').hidden,false);
   assert.equal(node('energy-open').href,'/');
   for(let i=0;i<5;i++)node('floor-add').onclick();
   assert.equal(Number(node('panel-floors').value),3);
   assert.equal(node('floor-add').disabled,true);
   node('panel-bearing').value='270';node('panel-bearing').input();
   assert.equal(Number(node('energy-azimuth').value),270);
+  node('house-bearing').value='90';node('house-bearing').input();
+  assert.equal(Number(node('energy-azimuth').value),0,'House rotation must rotate attached panel bearing');
+  node('house-bearing').value='360';node('house-bearing').input();
+  assert.equal(Number(node('energy-azimuth').value),270,'Full rotation must restore geographic bearing');
+  for(const side of ['left','right']) {
+    for(let i=0;i<7;i++)node('neighbor-'+side+'-add').onclick();
+    assert.equal(Number(node('neighbor-'+side).value),5);
+    assert.equal(node('neighbor-'+side+'-add').disabled,true);
+  }
+  node('panel-reset').onclick();
+  assert.equal(node('panel-follow').attrs['aria-pressed'],'false');
+  context.compassState.active=true;context.compassState.ready=true;
+  node('panel-follow').onclick();
+  assert.equal(node('panel-follow').attrs['aria-pressed'],'true');
+  assert.match(node('panel-view-status').textContent,/đang xoay theo/);
+  node('date').value='2026-06-21';node('date').change();
+  const juneRise=node('rise-time').textContent;
+  node('month').value='12';node('month').input();
+  assert.match(node('date').value,/2026-12-21/);
+  assert.notEqual(node('rise-time').textContent,juneRise,'Month must update sunrise on calculator');
   node('energy-tilt').value='35';node('energy-tilt').input();
   assert.equal(Number(node('panel-slope').value),35);
   node('panel-optimize').onclick();

@@ -25,6 +25,23 @@
     const s = vector(sun.azimuth, sun.altitude);
     return points.map(([x,y,z]) => [x-y*s[0]/s[1],0,z-y*s[2]/s[1]]);
   }
+  function rotate([x,y,z], bearing) {
+    const a=bearing*rad;
+    return [x*Math.cos(a)-z*Math.sin(a),y,x*Math.sin(a)+z*Math.cos(a)];
+  }
+  function blocked(point, sun, buildings, bearing) {
+    if (sun.altitude<=0) return false;
+    const origin=rotate(point,-bearing), ray=rotate(vector(sun.azimuth,sun.altitude),-bearing);
+    return buildings.some(({x,z,width,depth,height})=>{
+      const min=[x-width/2,0,z-depth/2],max=[x+width/2,height,z+depth/2];
+      let near=0.0001,far=Infinity;
+      for(let i=0;i<3;i++) {
+        if(Math.abs(ray[i])<1e-10) { if(origin[i]<min[i] || origin[i]>max[i])return false; }
+        else { const a=(min[i]-origin[i])/ray[i],b=(max[i]-origin[i])/ray[i];near=Math.max(near,Math.min(a,b));far=Math.min(far,Math.max(a,b)); }
+      }
+      return far>=near;
+    });
+  }
   function recommend(samples) {
     let best = { bearing:180, tilt:0, score:-1 };
     for (let tilt=0;tilt<=90;tilt+=5) for (let bearing=0;bearing<360;bearing+=5) {
@@ -34,6 +51,6 @@
     }
     return best;
   }
-  root.PanelGeometry = { vector, angle, incidence, corners, shadow, recommend };
+  root.PanelGeometry = { vector, angle, incidence, corners, shadow, rotate, blocked, recommend };
   if (typeof module !== 'undefined') module.exports = root.PanelGeometry;
 })(typeof window !== 'undefined' ? window : globalThis);

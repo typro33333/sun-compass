@@ -13,11 +13,13 @@ globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname |
   document.querySelector('.intro p').textContent = 'Bố trí trên mái, khám phá ánh sáng và dự đoán điện năng trong một không gian riêng.';
   const link = document.getElementById('energy-open');
   link.href = '/'; link.textContent = '← Về la bàn';
-  document.querySelector('.compass-card').hidden = true;
+  document.querySelector('.compass-card').hidden = false;
   document.querySelector('.compass-help').hidden = true;
   const planner = document.getElementById('panel-planner');
   planner.hidden = false;
-  planner.after(document.querySelector('.timeline-card'));
+  planner.after(document.querySelector('.compass-card'));
+  document.querySelector('.planner-viewport').append(document.querySelector('.timeline-card'));
+  document.querySelector('.timeline-card').prepend(document.getElementById('date-controls'));
   const dialog = document.getElementById('energy-dialog');
   const section = document.createElement('section');
   section.id = dialog.id; section.className = 'calculator-energy';

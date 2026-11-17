@@ -15,11 +15,14 @@ Mở http://localhost:5173. GPS và cảm biến yêu cầu HTTPS hoặc localho
 
 - `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
 - `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): thời tiết hiện tại, dự báo điện và bố trí pin 3D. Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
+- La bàn 2D/3D và nút bật cảm biến giống trang chủ. Nút **Theo la bàn thiết bị** trên mô hình nhà dùng chung cảm biến; kéo/phím mũi tên chuyển sang xoay tay. Thanh ngày/tháng đặt cạnh thanh thời gian, cập nhật đồng thời hai mô hình.
+- Xoay mặt tiền nhà 0–360° sẽ xoay cả pin và hai nhà bên; hướng pin trong dự báo vẫn tính từ Bắc. Nhà trái/phải được xác định khi đứng trong nhà nhìn ra mặt tiền, chỉnh độc lập 0–5 tầng (0 để bỏ nhà), mỗi tầng 3,2 m, cách nhà chính 3 m.
+- Khung 3D được mở rộng; vòng cung và mặt trời hiển thị trên lớp riêng để nhà cao không che khuất. Bóng che trên pin lấy mẫu 36 ô và dò tia tới mặt trời qua hai khối nhà bên, chưa trừ vào kWh dự báo.
 - Mô hình mái phẳng 8 × 10 m, tầng trệt + 0–3 lầu, mỗi tầng 3,2 m. Thêm từng lầu, xoay góc nhìn bằng kéo/phím mũi tên, chỉnh hướng mặt pin 0–360°, nghiêng 0–90° và dịch cụm pin trên mái.
 - Hướng/góc nghiêng được đồng bộ với biểu mẫu dự báo. Khi chỉnh thông số, kết quả cũ bị ẩn và yêu cầu đang chờ bị hủy; bấm tính để lấy dự báo mới.
 - Chọn ngày/tháng và vị trí, kéo thanh thời gian hoặc phát từ bình minh tới hoàng hôn. Có thể nhập tọa độ thủ công nếu GPS bị từ chối. Các phép tính hình học vẫn chạy khi API thời tiết không khả dụng.
 - Gợi ý góc lắp tìm trên lưới 5° theo quỹ đạo ngày đã chọn, lấy mẫu 10 phút, gia quyền góc tới theo sin độ cao mặt trời. Đây là gợi ý hình học trong ngày, chưa tối ưu sản lượng cả năm.
-- 6 tấm là minh họa, không suy ra công suất kWp; công suất vẫn nhập riêng. Bóng đổ trên nền và tỷ lệ cos góc tới chỉ minh họa ánh sáng trực tiếp. Chưa mô hình hóa bóng che vật cản/dãy pin, kết cấu hay mái nghiêng. Độ cao nhà và dịch chuyển trên mái không thay đổi dự báo kWh.
+- 6 tấm là minh họa, không suy ra công suất kWp; công suất vẫn nhập riêng. Bóng đổ trên nền và tỷ lệ cos góc tới chỉ minh họa ánh sáng trực tiếp. Chỉ mô phỏng bóng che từ hai nhà bên; chưa mô hình hóa vật cản khác/dãy pin, kết cấu hay mái nghiêng. Độ cao nhà và dịch chuyển trên mái không thay đổi dự báo kWh.
 - Dự báo điện/thời tiết vẫn áp dụng cho hôm nay, độc lập với ngày mô phỏng 3D. Không thêm thư viện hoặc dịch vụ 3D bên ngoài.
 
 ## Kiểm tra
@@ -107,7 +110,7 @@ API miễn phí Open-Meteo dành cho phi thương mại, có quota riêng và c�
 - Hướng/góc nghiêng được đồng bộ với biểu mẫu dự báo. Khi chỉnh thông số, kết quả cũ bị ẩn và yêu cầu đang chờ bị hủy; bấm tính để lấy dự báo mới.
 - Chọn ngày/tháng và vị trí, kéo thanh thời gian hoặc phát từ bình minh tới hoàng hôn. Có thể nhập tọa độ thủ công nếu GPS bị từ chối. Các phép tính hình học vẫn chạy khi API thời tiết không khả dụng.
 - Gợi ý góc lắp tìm trên lưới 5° theo quỹ đạo ngày đã chọn, lấy mẫu 10 phút, gia quyền góc tới theo sin độ cao mặt trời. Đây là gợi ý hình học trong ngày, chưa tối ưu sản lượng cả năm.
-- 6 tấm là minh họa, không suy ra công suất kWp; công suất vẫn nhập riêng. Bóng đổ trên nền và tỷ lệ cos góc tới chỉ minh họa ánh sáng trực tiếp. Chưa mô hình hóa bóng che vật cản/dãy pin, kết cấu hay mái nghiêng. Độ cao nhà và dịch chuyển trên mái không thay đổi dự báo kWh.
+- 6 tấm là minh họa, không suy ra công suất kWp; công suất vẫn nhập riêng. Bóng đổ trên nền và tỷ lệ cos góc tới chỉ minh họa ánh sáng trực tiếp. Chỉ mô phỏng bóng che từ hai nhà bên; chưa mô hình hóa vật cản khác/dãy pin, kết cấu hay mái nghiêng. Độ cao nhà và dịch chuyển trên mái không thay đổi dự báo kWh.
 - Dự báo điện/thời tiết vẫn áp dụng cho hôm nay, độc lập với ngày mô phỏng 3D. Không thêm thư viện hoặc dịch vụ 3D bên ngoài.
 
 ## Kiểm tra
