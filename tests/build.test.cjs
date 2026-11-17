@@ -47,7 +47,7 @@ node('time').input({target:{value:'600'}});
 assert.equal(node('selected-time').textContent,'10:00');
 if (pathname === '/sol-calculartor') {
   assert.equal(node('panel-planner').hidden,false);
-  assert.equal(node('.compass-card').hidden,false);
+  assert.equal(node('.compass-card').hidden,true);
   assert.equal(node('energy-open').href,'/');
   for(let i=0;i<5;i++)node('floor-add').onclick();
   assert.equal(Number(node('panel-floors').value),3);

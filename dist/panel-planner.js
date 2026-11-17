@@ -94,7 +94,7 @@
   function render() {
     if (!ctx) return;
     if(follow && globalThis.compassState?.ready) yaw=heading*R;
-    $('panel-view-status').textContent=follow ? (globalThis.compassState?.ready ? '3D đang xoay theo la bàn thiết bị.' : 'Bật la bàn thiết bị ở phần la bàn hoặc bấm Theo la bàn thiết bị.') : '3D đang xoay bằng tay. Hướng nhà không đổi khi xoay góc nhìn.';
+    $('panel-view-status').textContent=follow ? (globalThis.compassState?.ready ? '3D đang xoay theo la bàn thiết bị.' : 'Bấm Theo la bàn thiết bị để bật; xem trạng thái ở nhóm La bàn thiết bị.') : '3D đang xoay bằng tay. Hướng nhà không đổi khi xoay góc nhìn.';
     const c=configuration(), width=canvas.clientWidth, height=canvas.clientHeight;
     if (!width || !height) return;
     const dpr=Math.min(window.devicePixelRatio||1,2);
@@ -119,7 +119,7 @@
     ['BẮC · 0°','ĐÔNG · 90°','NAM · 180°','TÂY · 270°'].forEach((text,i)=>{const p=G.vector(i*90,0).map(v=>v*34);const [x,y]=project(p);ctx.fillText(text,x,y);});
     const rotate=p=>G.rotate(p,c.house);
     const panel=G.corners(c.bearing-c.house,c.tilt,buildingHeight,c.x,-c.z).map(rotate);
-    const neighbors=[{x:-11,z:0,width:8,depth:10,height:c.left*3.2},{x:11,z:0,width:8,depth:10,height:c.right*3.2}].filter(b=>b.height>0);
+    const neighbors=G.neighbors(c.left,c.right);
     const buildings=[{x:0,z:0,width:8,depth:10,height:buildingHeight,main:true},...neighbors];
     const buildingRoof=b=>[[b.x-4,b.height,-5],[b.x+4,b.height,-5],[b.x+4,b.height,5],[b.x-4,b.height,5]].map(rotate);
     let sun=null;

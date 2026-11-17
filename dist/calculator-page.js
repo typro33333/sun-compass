@@ -13,11 +13,14 @@ globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname |
   document.querySelector('.intro p').textContent = 'Bố trí trên mái, khám phá ánh sáng và dự đoán điện năng trong một không gian riêng.';
   const link = document.getElementById('energy-open');
   link.href = '/'; link.textContent = '← Về la bàn';
-  document.querySelector('.compass-card').hidden = false;
+  document.querySelector('.compass-card').hidden = true;
   document.querySelector('.compass-help').hidden = true;
   const planner = document.getElementById('panel-planner');
   planner.hidden = false;
-  planner.after(document.querySelector('.compass-card'));
+  document.getElementById('planner-jump-view').href = location.pathname + '#panel-canvas';
+  document.getElementById('planner-jump-energy').href = location.pathname + '#energy-dialog';
+  document.getElementById('planner-device').append(document.querySelector('.compass-mode'), document.getElementById('sensor-status'));
+  document.getElementById('planner-location').append(document.querySelector('.settings-card'));
   document.querySelector('.planner-viewport').append(document.querySelector('.timeline-card'));
   document.querySelector('.timeline-card').prepend(document.getElementById('date-controls'));
   const dialog = document.getElementById('energy-dialog');
@@ -27,5 +30,7 @@ globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname |
   while (dialog.firstChild) section.append(dialog.firstChild);
   dialog.replaceWith(section);
   document.querySelector('.workspace').prepend(section);
+  section.insertBefore(document.getElementById('energy-preview'), document.getElementById('energy-form'));
+  document.getElementById('energy-title').textContent = 'Cấu hình & tính sản lượng';
   document.querySelector('.coordinates').hidden = false;
 })();

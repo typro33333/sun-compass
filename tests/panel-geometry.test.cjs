@@ -27,7 +27,11 @@ for(let bearing=0;bearing<=360;bearing+=15){
   const point=[2,9,-3], rotated=G.rotate(G.rotate(point,bearing),-bearing);
   point.forEach((v,i)=>close(v,rotated[i]));
 }
-const eastHouse=[{x:11,z:0,width:8,depth:10,height:16}];
+const touching=G.neighbors(5,5);
+assert.equal(touching[0].x+touching[0].width/2,-4,'Left neighbor must touch central west wall');
+assert.equal(touching[1].x-touching[1].width/2,4,'Right neighbor must touch central east wall');
+assert.deepEqual(G.neighbors(0,0),[]);
+const eastHouse=G.neighbors(0,5);
 assert(G.blocked([0,6.4,0],{azimuth:90,altitude:20},eastHouse,0),'Tall east neighbor blocks low morning sunlight');
 assert(!G.blocked([0,6.4,0],{azimuth:270,altitude:20},eastHouse,0),'Building behind the ray must not block sunlight');
 assert(!G.blocked([0,6.4,0],{azimuth:90,altitude:80},eastHouse,0),'High sun clears the neighbor');

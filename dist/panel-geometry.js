@@ -29,6 +29,10 @@
     const a=bearing*rad;
     return [x*Math.cos(a)-z*Math.sin(a),y,x*Math.sin(a)+z*Math.cos(a)];
   }
+  function neighbors(left, right) {
+    // Two 8 m wide houses touch the 8 m wide central house at x = ±4.
+    return [{x:-8,z:0,width:8,depth:10,height:left*3.2},{x:8,z:0,width:8,depth:10,height:right*3.2}].filter(b=>b.height>0);
+  }
   function blocked(point, sun, buildings, bearing) {
     if (sun.altitude<=0) return false;
     const origin=rotate(point,-bearing), ray=rotate(vector(sun.azimuth,sun.altitude),-bearing);
@@ -51,6 +55,6 @@
     }
     return best;
   }
-  root.PanelGeometry = { vector, angle, incidence, corners, shadow, rotate, blocked, recommend };
+  root.PanelGeometry = { vector, angle, incidence, corners, shadow, rotate, neighbors, blocked, recommend };
   if (typeof module !== 'undefined') module.exports = root.PanelGeometry;
 })(typeof window !== 'undefined' ? window : globalThis);

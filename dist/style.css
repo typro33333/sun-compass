@@ -128,44 +128,105 @@ header{gap:16px}#theme-toggle{white-space:nowrap}
 
 .location-notice>div{flex:1;min-width:0}.location-notice button{flex-shrink:0}.location-notice p{margin:5px 0 0;font-size:11px}
 
-/* Dedicated solar calculator */
+/* Dedicated solar calculator: preview and controls first, energy form below. */
 .nav-link{display:inline-block;border-radius:9px;padding:12px 17px;font-size:12px;text-decoration:none;white-space:nowrap}
 [hidden]{display:none!important}
-.planner-card{border:1px solid #e0e5db;border-radius:18px;background:#fff;overflow:hidden;margin-bottom:24px}
-.planner-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;margin-top:22px}
-.planner-viewport{min-width:0;background:#edf2ec}
-#panel-canvas{width:100%;height:470px;display:block;touch-action:none;cursor:grab}
+.calculator-page main{max-width:1380px;padding-top:28px}
+.calculator-page .intro{margin-bottom:24px}
+.planner-card{border:1px solid #e0e5db;border-radius:18px;background:#fff;margin-bottom:24px;overflow:clip}
+.planner-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,350px);align-items:start;gap:0;margin-top:20px}
+.planner-viewport{min-width:0;background:#edf2ec;position:sticky;top:12px}
+#panel-canvas{width:100%;height:400px;display:block;touch-action:none;cursor:grab}
 #panel-canvas:active{cursor:grabbing}
-.planner-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 20px 16px;font-size:11px;color:#56695b}
-.planner-controls{padding:0 24px 20px}.planner-controls label{display:block;font-size:12px;margin:20px 0 12px}.planner-controls label:first-child{margin-top:0}.planner-controls output{display:block;font-weight:600;margin:8px 0 16px}.planner-controls input{display:block;margin-top:14px}.planner-controls button{width:100%;margin-top:10px}.bearing-ticks{display:flex;justify-content:space-between;font-size:8px;color:#56695b}.planner-stats{display:flex;gap:28px;padding:20px;border-top:1px solid #d8e0d5}.planner-stats span{display:block;font-size:10px;color:#56695b}.planner-stats strong{display:block;font-weight:500;font-size:25px;margin-top:8px}.planner-note{padding:0 24px 12px;font-size:11px}.calculator-page #energy-dialog{width:100%;max-height:none;margin:0}.calculator-page .workspace{grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr)}.calculator-page .timeline-card{margin-bottom:24px}.calculator-page .coordinates{display:grid}.calculator-page .time-ticks{justify-content:center;font-size:11px}.calculator-page .compass-help{display:none}.calculator-page #energy-close{display:none}
-[data-theme=dark] .planner-card{background:#19282e;border-color:#34464c}[data-theme=dark] .planner-viewport{background:#253d38}[data-theme=dark] :is(.planner-toolbar,.planner-stats span,.bearing-ticks){color:#b0c1bd}[data-theme=dark] .planner-stats{border-color:#455b61}
-@media(max-width:900px){.planner-layout{grid-template-columns:1fr}.planner-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;padding-top:20px}.planner-controls label:first-child{margin-top:20px}.planner-controls .bearing-ticks{display:none}.planner-controls p{margin:auto 0}.calculator-page .workspace{grid-template-columns:1fr}.calculator-page aside{display:flex}#panel-canvas{height:430px}}
-@media(max-width:480px){#panel-canvas{height:350px}.planner-controls{display:block}.planner-controls .bearing-ticks{display:flex}.planner-toolbar{font-size:9px;padding:0 12px 12px}.planner-stats{gap:20px}.planner-stats strong{font-size:21px}.planner-card .card-heading{padding:20px 18px 0}.planner-note{padding:0 18px 12px}.calculator-page .energy-fields{grid-template-columns:1fr 1fr}.nav-link{font-size:10px}}
-.calculator-page .settings-card{display:block}.calculator-page .settings-card>.eyebrow{font-size:10px}.calculator-page .settings-card>.eyebrow::after{content:none}
-@media(max-width:800px){.calculator-page main>.intro{display:block}.calculator-page .header-actions .nav-link{white-space:normal}}
+#panel-canvas:focus-visible{outline:3px solid #8b611c;outline-offset:-3px}
+.planner-toolbar{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:0 16px 10px;font-size:10px;color:#56695b}
+.planner-toolbar button{min-height:44px;padding:10px 12px}
+.planner-toolbar span{width:100%;text-align:center}
+.calculator-page #panel-view-status{text-align:center;padding:0 16px 10px;margin:0;font-size:10px}
+.planner-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px 18px;border-top:1px solid #d8e0d5}
+.planner-stats span{display:block;font-size:10px;line-height:1.5;color:#56695b}
+.planner-stats strong{display:block;font-weight:500;font-size:21px;margin-top:6px}
+.planner-controls{min-width:0;padding:0 18px 20px}
+.planner-controls-heading{padding:0 2px 12px}.planner-controls-heading p{margin:6px 0;font-size:11px}
+.planner-control-group{min-width:0;border:1px solid #dce3d8;border-radius:12px;margin:0 0 10px;overflow:hidden}
+.planner-control-group summary,.planner-explanation summary{cursor:pointer;font-size:13px;font-weight:600;padding:16px;min-height:48px;line-height:1.5}
+.planner-control-group summary::marker,.planner-explanation summary::marker{color:#8b611c}
+.planner-control-group[open] summary{border-bottom:1px solid #e4e9e0;background:#f7f8f4}
+.control-content{padding:16px}
+.planner-controls label{display:block;font-size:12px;line-height:1.6;margin:20px 0 10px}
+.planner-controls label:first-child{margin-top:0}
+.planner-controls output{display:block;font-weight:600;margin:6px 0 8px;font-variant-numeric:tabular-nums}
+.planner-controls input{display:block;margin-top:10px}
+.planner-controls button{width:100%;min-height:44px;margin-top:6px}
+.planner-controls p{font-size:11px;line-height:1.7;margin:10px 0}
+.bearing-ticks{display:flex;justify-content:space-between;gap:4px;font-size:8px;color:#56695b}
+.calculator-page .planner-viewport>.timeline-card{padding:18px;margin:0 14px 14px}
+.calculator-page .timeline-card #date-controls{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:0 0 18px}
+.calculator-page #date-controls label{display:block;font-size:11px;margin-bottom:8px}
+.calculator-page .timeline-top{gap:12px;flex-wrap:wrap}
+.calculator-page .timeline-top .eyebrow{font-size:8px}
+.calculator-page #selected-time{font-size:28px}
+.calculator-page .metrics{gap:16px}.calculator-page .metrics b{font-size:16px}
+.calculator-page .play-actions{width:auto;margin-left:auto}
+.calculator-page .play-actions button{padding:10px 12px;min-height:44px}
+.calculator-page .range-wrap{margin-top:12px}
+.calculator-page .time-ticks{justify-content:center;font-size:10px;margin-top:8px}
+.planner-explanation{border-top:1px solid #e0e5db}.planner-explanation summary{font-size:11px;font-weight:500}
+.planner-note{padding:0 18px 12px;font-size:11px;margin:0}
+.calculator-page .workspace{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);align-items:start}
+.calculator-page #energy-dialog{width:100%;max-height:none;margin:0;padding:24px;scroll-margin-top:18px}
+.calculator-page #energy-close,.calculator-page .compass-help{display:none}
+.calculator-page .energy-preview{font-size:12px;margin-top:16px}
+.calculator-page .settings-card{display:block;border:0;border-radius:0;padding:0 16px 16px}
+.calculator-page .settings-card>.eyebrow{display:none}
+.calculator-page .coordinates{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.calculator-page .compass-mode{display:flex;flex-direction:column;margin:0;padding:16px 16px 0;gap:8px}
+.calculator-page .compass-mode button{font-size:12px;min-height:44px}
+.calculator-page #sensor-status{margin:10px 16px 16px;font-size:11px;text-align:left}
+.calculator-page input[type=range]{height:24px;min-height:24px;background-size:100% 6px;background-repeat:no-repeat;background-position:center}
+.calculator-page #month{height:24px;margin:0}
+.calculator-page input[type=range]::-webkit-slider-thumb{width:24px;height:24px}
+.calculator-page input[type=range]::-moz-range-thumb{width:14px;height:14px}
+.calculator-page summary:focus-visible{outline:3px solid #8b611c;outline-offset:-3px}
+[data-theme=dark] :is(.planner-card,.planner-control-group){background:#19282e;border-color:#34464c}
+[data-theme=dark] .planner-viewport{background:#253d38}
+[data-theme=dark] :is(.planner-toolbar,.planner-stats span,.bearing-ticks){color:#b0c1bd}
+[data-theme=dark] :is(.planner-stats,.planner-explanation){border-color:#455b61}
+[data-theme=dark] .planner-control-group[open] summary{background:#21353b;border-color:#34464c}
+[data-theme=dark] .calculator-page :is(summary,#panel-canvas):focus-visible{outline-color:#f1c77d}
+@media(max-width:1000px){.calculator-page main{padding:24px}.planner-layout{grid-template-columns:minmax(0,1fr) 300px}#panel-canvas{height:360px}.calculator-page .metrics{gap:12px}}
+@media(max-width:800px){
+ .calculator-page main{padding:18px 12px}.calculator-page main>.intro{display:block;margin-bottom:18px}
+ .calculator-page .intro h1{font-size:28px;margin:6px 0}.calculator-page .intro p{font-size:12px}
+ .calculator-page .header-actions .nav-link{white-space:normal}
+ .planner-layout{grid-template-columns:1fr;margin-top:14px}.planner-viewport{position:static}
+ #panel-canvas{height:clamp(240px,38svh,340px)}
+ .planner-card .card-heading{padding:18px 16px 0}.planner-card .card-heading h2{font-size:14px}
+ .planner-controls{padding:16px;border-top:1px solid #d8e0d5}
+ .planner-controls-heading p{font-size:12px}.planner-control-group summary{font-size:14px;min-height:50px}
+ .planner-controls label{font-size:13px}.planner-controls p{font-size:12px}
+ .calculator-page .planner-viewport>.timeline-card{padding:14px;margin:0 10px 12px}
+ .calculator-page .workspace{grid-template-columns:1fr;gap:16px}.calculator-page aside{display:flex}
+ .calculator-page #energy-dialog{padding:20px 16px}.calculator-page .energy-fields{gap:16px}
+ .calculator-page .planner-stats{gap:10px;padding:12px 14px}.planner-stats strong{font-size:19px}
+ .calculator-page .timeline-card #date-controls{gap:14px;margin-bottom:14px}
+ .calculator-page #phase{max-width:110px}.calculator-page .time-display{gap:10px}
+ .calculator-page .energy-heading h2{font-size:21px}
+}
+@media(max-width:420px){
+ .calculator-page .energy-fields{grid-template-columns:1fr}
+ .calculator-page .timeline-top{display:grid;grid-template-columns:1fr auto}
+ .calculator-page .metrics{grid-column:1;grid-row:2}.calculator-page .play-actions{grid-column:2;grid-row:1/3;flex-direction:column;gap:6px}
+ .calculator-page .planner-toolbar{gap:6px;padding-left:10px;padding-right:10px}.planner-toolbar button{font-size:11px;padding:10px}
+ .planner-stats span{font-size:9px}.planner-stats strong{font-size:18px}
+}
 
-/* Give the sun path and neighboring houses room, with settings below the view. */
-.calculator-page main{max-width:1540px}
-.calculator-page .planner-layout{grid-template-columns:1fr}
-.calculator-page #panel-canvas{height:700px}
-.calculator-page .planner-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 28px;padding:28px;border-top:1px solid #d8e0d5;align-items:start}
-.calculator-page .planner-controls label,.calculator-page .planner-controls label:first-child{margin:0 0 12px}
-.calculator-page .planner-controls p{margin:0}
-.neighbor-controls{border:1px solid #d8e0d5;border-radius:12px;padding:16px;min-width:0}
-.neighbor-controls legend{font-size:13px;font-weight:600;padding:0 8px}
-.calculator-page .neighbor-controls label{margin-top:20px}
-.calculator-page .planner-viewport>.timeline-card{margin:0 20px 20px}
-.calculator-page .timeline-card #date-controls{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
-.calculator-page #date-controls label{display:block;font-size:12px;margin-bottom:10px}
-.calculator-page .compass-card{margin-bottom:24px}
-.calculator-page .planner-toolbar{flex-wrap:wrap;justify-content:center}
-.calculator-page .planner-stats{justify-content:center;flex-wrap:wrap}
-.calculator-page #panel-view-status{text-align:center;margin:0;padding-bottom:12px}
-[data-theme=dark] :is(.neighbor-controls,.calculator-page .planner-controls){border-color:#455b61}
-@media(max-width:900px){.calculator-page #panel-canvas{height:580px}.calculator-page .planner-controls{grid-template-columns:1fr 1fr;padding:20px}}
-@media(max-width:540px){.calculator-page #panel-canvas{height:500px}.calculator-page .planner-controls{display:block}.calculator-page .planner-controls>label,.calculator-page .planner-controls>fieldset{margin-top:24px}.calculator-page .planner-viewport>.timeline-card{margin:0 10px 14px}.calculator-page .planner-stats{gap:18px}.calculator-page .planner-stats strong{font-size:20px}.calculator-page .timeline-card #date-controls{gap:14px}}
-
-.planner-control-group{min-width:0}.planner-control-group h3{font-size:14px;margin:0 0 22px;font-weight:600}
-.calculator-page .planner-control-group>label{margin-top:22px}.calculator-page .planner-control-group>label:first-of-type{margin-top:0}
-.calculator-page .planner-control-group>p{margin:12px 0}.calculator-page .planner-control-group .bearing-ticks{display:flex}
-@media(max-width:900px){.calculator-page .planner-controls{grid-template-columns:1fr}.planner-control-group,.neighbor-controls{width:100%}}
+.planner-jumps{display:none}
+#panel-canvas{scroll-margin-top:12px}
+@media(max-width:800px){
+ .planner-controls-heading{position:sticky;top:0;z-index:2;background:#fff;padding:12px 0;margin:-12px 0 6px}
+ .planner-jumps{display:flex;justify-content:space-between;gap:12px}
+ .planner-jumps a{display:inline-flex;align-items:center;min-height:44px;padding:8px 12px;border:1px solid #dce3d8;border-radius:8px;color:inherit;font-size:12px;text-decoration:none}
+ [data-theme=dark] .planner-controls-heading{background:#19282e}
+ [data-theme=dark] .planner-jumps a{border-color:#455b61}
+}
