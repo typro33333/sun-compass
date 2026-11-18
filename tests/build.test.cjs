@@ -18,14 +18,14 @@ const timers = [];
 const context2d = new Proxy({createLinearGradient:()=>({addColorStop(){}}),createRadialGradient:()=>({addColorStop(){}})}, {get:(o,k)=>o[k] || (()=>{})});
 function node(id) {
   if (!nodes.has(id)) nodes.set(id, { nodeType:1,tagName:'DIV',childNodes:[],dataset:{},style:{},value:'',textContent:'',innerHTML:'',attrs:{},checked:true,
-    setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k];},hasAttribute(k){return k in this.attrs;},
+    setPointerCapture(){},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k];},hasAttribute(k){return k in this.attrs;},
     addEventListener(k,fn){this[k]=fn;},checkValidity:()=>true,reportValidity:()=>true,getContext:()=>id==='panel-canvas'?context2d:null,clientWidth:700,clientHeight:470,
     append(){},after(){},replaceWith(){},prepend(){},insertBefore(){},contains:()=>false,classList:{add(){},remove(){},toggle:()=>false},showModal(){},close(){},
   });
   return nodes.get(id);
 }
 for (const match of html.matchAll(/id="([^"]+)"[^>]*?(?:value="([^"]*)")?[^>]*>/g)) node(match[1]);
-for (const [id,value] of Object.entries({'energy-kwp':'11','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
+for (const [id,value] of Object.entries({'energy-kwp':'11','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','house-length':'10','panel-count':'6','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
 let gpsSuccess;
 const context = { document:{ body:node('body'),documentElement:node('html'),cookie:'',hidden:false,createElement:node,getElementById:node,querySelector:node,addEventListener(){} },
   localStorage:{getItem:()=>null,setItem(){}},sessionStorage:{getItem:()=>null,setItem(){}},location:{protocol:'https:',pathname},
@@ -76,6 +76,43 @@ if (pathname === '/sol-calculartor') {
   assert.notEqual(node('rise-time').textContent,juneRise,'Month must update sunrise on calculator');
   node('energy-tilt').value='35';node('energy-tilt').input();
   assert.equal(Number(node('panel-slope').value),35);
+  for(let i=0;i<20;i++)node('panel-zoom-in').onclick();
+  assert.equal(node('panel-zoom-label').textContent,'400%');
+  assert.equal(node('panel-zoom-in').disabled,true);
+  for(let i=0;i<30;i++)node('panel-zoom-out').onclick();
+  assert.equal(node('panel-zoom-label').textContent,'50%');
+  node('panel-reset').onclick();
+  assert.equal(node('panel-zoom-label').textContent,'100%');
+  node('panel-canvas').pointerdown({pointerType:'touch',pointerId:1,clientX:0,clientY:0});
+  node('panel-canvas').pointerdown({pointerType:'touch',pointerId:2,clientX:100,clientY:0});
+  node('panel-canvas').pointermove({pointerId:2,clientX:200,clientY:0});
+  assert.equal(node('panel-zoom-label').textContent,'200%');
+  node('panel-canvas').pointercancel({pointerId:1});
+  node('panel-canvas').pointerup({pointerId:2});
+  node('panel-view-front').onclick();node('panel-view-top').onclick();
+  node('house-length').value='30';node('house-length').input();
+  assert.equal(node('house-length-label').textContent,'30 m');
+  for(let i=0;i<20;i++)node('panel-add').onclick();
+  assert.equal(Number(node('panel-count').value),12);
+  assert.equal(node('panel-add').disabled,true);
+  for(let i=0;i<20;i++)node('panel-remove').onclick();
+  assert.equal(Number(node('panel-count').value),1);
+  assert.equal(node('panel-remove').disabled,true);
+  node('planner-setting-group').value='planner-neighbors';node('planner-setting-group').change();
+  assert.equal(node('planner-neighbors').hidden,false);
+  node('planner-setting-group').value='planner-panels';
+  node('planner-setting-group').change();
+  assert.equal(node('planner-panels').hidden,false);
+  assert.equal(node('planner-house').hidden,true);
+  assert.equal(node('planner-location').hidden,true);
+  node('planner-settings').open=true;
+  node('planner-settings').keydown({key:'Escape'});
+  assert.equal(node('planner-settings').open,false);
+  node('roof-type').value='1';node('roof-type').input();
+  assert.equal(Number(node('energy-tilt').value),35,'Roof style must preserve panel inclination');
+  node('panel-optimize-year').onclick();
+  assert.match(node('panel-advice').textContent,/năm 2026/);
+  assert.equal(Number(node('panel-slope').value),Number(node('energy-tilt').value));
   node('panel-optimize').onclick();
   assert.equal(Number(node('panel-bearing').value),Number(node('energy-azimuth').value));
   node('play').onclick();const tick=timers.at(-1);
