@@ -7,7 +7,10 @@ globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname |
     document.getElementById('location-purpose').textContent = 'La bàn tính toán hướng nắng trên trình duyệt. Thời tiết và điện mặt trời nằm ở trang tính toán riêng.';
     return;
   }
+  globalThis.hideCurrentWeather = true;
   document.body.classList.add('calculator-page');
+  document.querySelector('.weather-card').hidden = true;
+  document.getElementById('date-controls').hidden = true;
   document.title = 'Sol — Tính toán & bố trí pin mặt trời';
   document.querySelector('.intro h1').textContent = 'Đặt pin. Đón trọn nắng.';
   document.querySelector('.intro p').textContent = 'Bố trí trên mái, khám phá ánh sáng và dự đoán điện năng trong một không gian riêng.';
@@ -15,12 +18,14 @@ globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname |
   link.href = '/'; link.textContent = '← Về la bàn';
   document.querySelector('.compass-card').hidden = true;
   document.querySelector('.compass-help').hidden = true;
+  document.querySelector('.sun-times').hidden = true;
   const planner = document.getElementById('panel-planner');
   planner.hidden = false;
   document.getElementById('planner-jump-view').href = location.pathname + '#panel-canvas';
   document.getElementById('planner-jump-energy').href = location.pathname + '#energy-dialog';
   document.getElementById('planner-device').append(document.querySelector('.compass-mode'), document.getElementById('sensor-status'));
   document.getElementById('planner-location').append(document.querySelector('.settings-card'));
+  document.querySelector('.workspace aside').hidden = true;
   document.querySelector('.planner-viewport').append(document.querySelector('.timeline-card'));
   document.querySelector('.timeline-card').prepend(document.getElementById('date-controls'));
   const dialog = document.getElementById('energy-dialog');

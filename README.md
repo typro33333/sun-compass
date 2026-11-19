@@ -14,7 +14,7 @@ Mở http://localhost:5173. GPS và cảm biến yêu cầu HTTPS hoặc localho
 ## Trang tính toán riêng
 
 - `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
-- `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): thời tiết hiện tại, dự báo điện và bố trí pin 3D. Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
+- `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
 - Trang tính toán chỉ hiển thị mô phỏng nhà; la bàn 2D/3D riêng được giữ ở trang chủ. Nút bật cảm biến nằm trong nhóm **La bàn thiết bị**. Nút **Theo la bàn thiết bị** trên mô hình nhà dùng chung cảm biến; kéo/phím mũi tên chuyển sang xoay tay. Thanh ngày/tháng đặt cạnh thanh thời gian, cập nhật đồng thời hai mô hình.
 - Xoay mặt tiền nhà 0–360° sẽ xoay cả pin và hai nhà bên; hướng pin trong dự báo vẫn tính từ Bắc. Nhà trái/phải được xác định khi đứng trong nhà nhìn ra mặt tiền, chỉnh độc lập 0–5 tầng (0 để bỏ nhà), mỗi tầng 3,2 m, áp sát nhà chính (không có khoảng cách).
 - Desktop đặt mô phỏng bên trái, nhóm điều chỉnh thu gọn bên phải; mobile xếp mô phỏng, thanh thời gian rồi các nhóm điều chỉnh. Cấu hình điện và kết quả nằm bên dưới mô phỏng. Khung 3D được thu gọn; vòng cung và mặt trời hiển thị trên lớp riêng để nhà cao không che khuất. Bóng che trên pin lấy mẫu 36 ô và dò tia tới mặt trời qua hai khối nhà bên, chưa trừ vào kWh dự báo.
@@ -105,7 +105,7 @@ API miễn phí Open-Meteo dành cho phi thương mại, có quota riêng và c�
 ### Trang tính toán riêng
 
 - `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
-- `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): thời tiết hiện tại, dự báo điện và bố trí pin 3D. Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
+- `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
 - Mô hình mái phẳng 8 × 10 m, tầng trệt + 0–3 lầu, mỗi tầng 3,2 m. Thêm từng lầu, xoay góc nhìn bằng kéo/phím mũi tên, chỉnh hướng mặt pin 0–360°, nghiêng 0–90° và dịch cụm pin trên mái.
 - Hướng/góc nghiêng được đồng bộ với biểu mẫu dự báo. Khi chỉnh thông số, kết quả cũ bị ẩn và yêu cầu đang chờ bị hủy; bấm tính để lấy dự báo mới.
 - Chọn ngày/tháng và vị trí, kéo thanh thời gian hoặc phát từ bình minh tới hoàng hôn. Có thể nhập tọa độ thủ công nếu GPS bị từ chối. Các phép tính hình học vẫn chạy khi API thời tiết không khả dụng.
@@ -243,8 +243,36 @@ Kiểm tra bằng `bun run test:build`: startup bundle/GPS/thanh giờ, giải n
 
 ### Cài đặt mô phỏng 3D
 
-Menu **Cài đặt mô phỏng** nằm ở góc trên bên phải canvas, mặc định đóng. Mở menu và chọn nhóm trong dropdown để điều chỉnh nhà/mái, nhà bên, pin, la bàn hoặc vị trí; nhấn Escape để đóng. Kéo chuột trái/phải hoặc một ngón để xoay góc nhìn; cuộn chuột, chụm hai ngón hoặc dùng nút/phím + và − để zoom 50–400%. Phím F hoặc Đặt lại góc nhìn khôi phục góc nhìn và zoom. Có góc nhìn Mặt trước / Từ trên. Xoay góc nhìn không đổi hướng địa lý; thanh Hướng mặt tiền nhà xoay cả nhà và pin.
+Menu **Cài đặt mô phỏng** nằm ở góc trên bên phải canvas, mặc định đóng. Mở menu và chọn nhóm trong dropdown để điều chỉnh nhà/mái, nhà bên, pin, la bàn hoặc vị trí; nhấn Escape để đóng. Kéo chuột trái/phải hoặc một ngón để xoay góc nhìn; cuộn chuột, chụm hai ngón hoặc dùng nút/phím + và − để zoom 50–400%. Phím F hoặc Đặt lại góc nhìn khôi phục góc nhìn và zoom. Có góc nhìn Mặt trước / Từ trên. Xoay góc nhìn không đổi hướng địa lý; thanh Hướng cửa chính (hướng nhà) xoay cả nhà và pin.
 
-Chọn mái bằng hoặc mái Thái hai dốc (đỉnh cao 3 m). Mái Thái dùng giàn pin vượt đỉnh mái, chân đỡ chạm mặt mái dốc và được vẽ theo chiều sâu, chưa hỗ trợ pin áp theo mặt mái. Gợi ý cả năm dùng năm của ngày đang chọn, lấy mẫu mỗi 30 phút cho mọi ngày (kể cả 29/2), tìm hướng và góc nghiêng theo bước 5°. Điểm là tổng cos góc tới dương nhân sin độ cao mặt trời: chỉ tối ưu hình học, không dự báo điện năm và chưa xét thời tiết/bóng che. Nút gợi ý áp dụng trực tiếp hướng/góc vào cấu hình điện, cần tính lại sản lượng.
+Chọn mái bằng hoặc mái Thái hai dốc (đỉnh cao 3 m). Mái Thái dùng giàn pin vượt đỉnh mái, chân đỡ chạm mặt mái dốc và được vẽ theo chiều sâu, chưa hỗ trợ pin áp theo mặt mái. Gợi ý cả năm lấy mẫu 12 ngày giữa tháng, mỗi 30 phút và gia quyền theo số ngày từng tháng. Tìm thô hướng mỗi 15° và độ nghiêng mỗi 10°, tinh chỉnh vùng tốt theo bước 5°, kiểm tra các ứng viên cuối với 36 ô/tấm. Điểm là tổng cos góc tới dương × sin độ cao mặt trời × tỷ lệ pin không bị nhà bên che. Giữ nguyên tâm từng tấm, loại hướng gây chồng lấn/vượt mái. Đây là gợi ý gần đúng, đã xét bóng che nhà bên và mái Thái, chưa xét thời tiết hoặc bóng che giữa các tấm, không dự báo điện năm. Nút gợi ý áp dụng trực tiếp hướng/góc vào cấu hình điện, cần tính lại sản lượng.
 
 Trong dropdown, **Nhà chính & mái** cho phép đổi chiều dài 8–30 m (ngang 8 m); thân nhà, mái và chiều dài nhà bên cập nhật cùng nhau. **Nhà bên trái / phải** chỉnh độc lập 0–5 tầng mỗi bên. **Tấm pin & hướng tối ưu** có nút thêm/bớt 1–12 tấm, xếp thành cụm các tấm khoảng 1,2 × 2 m; vị trí tự giới hạn trong mái khi thay đổi hướng, kích thước hoặc số lượng. Bóng che được tính trên các tấm đang hiển thị. Số tấm minh họa không tự đổi tổng công suất kWp của dự báo.
+
+
+### Bố trí pin trên mặt phẳng và che nắng mái Thái
+
+- Bấm **Đặt tấm pin** dưới mô hình để mở popup. Kéo từng tấm hoặc chọn tấm rồi dùng phím mũi tên (10 cm), thêm/xóa hoặc xếp tự động. **Áp dụng lên 3D** xác nhận bố trí; **Hủy** và Escape giữ bố trí cũ. Không cho chồng pin hoặc vượt biên mái. Bố trí đã áp dụng được tự động lưu riêng trên trình duyệt bằng localStorage; bản nháp bị hủy không được lưu.
+- Mặt phẳng bố trí biểu diễn vị trí tâm và kích thước tấm khi nằm ngang; mô hình 3D giữ nguyên tâm và áp dụng hướng/góc nghiêng đang chọn. Pin nằm trên giàn cao hơn đỉnh mái 35 cm ở cạnh thấp nhất, không áp mái. Đổi hướng/kích thước làm bố trí không còn vừa mái sẽ dùng bố trí tự động.
+- Cửa hai cánh đánh dấu hướng nhà. Nhà bên trái/phải có lựa chọn mái bằng hoặc mái Thái độc lập, đỉnh mái Thái cao thêm 3 m; chọn 0 tầng sẽ bỏ cả thân và mái nhà bên đó.
+- Đón nắng trực tiếp = cos góc tới dương × tỷ lệ diện tích pin không bị nhà bên che, lấy mẫu 36 ô mỗi tấm, gồm bóng che mái Thái. Chỉ số này cập nhật theo thời gian/hướng nhà/hướng pin/vị trí pin. Gợi ý hướng/góc nghiêng đã xét bóng che cục bộ; dự báo kWh vẫn chưa trừ phần bóng che này.
+- Mô hình dùng bộ đệm độ sâu từng điểm ảnh để mái không vẽ đè pin sai thứ tự. Nhà thực sự nằm trước pin vẫn che pin đúng theo góc nhìn.
+- Kiểm tra bổ sung: `node tests/depth-renderer.test.cjs` (120 góc nhìn và thứ tự mặt), `node tests/panel-geometry.test.cjs` (giàn, vị trí và bóng che mái Thái), `bun run test:build` (popup áp dụng/hủy và bản build).
+
+
+### Tự lưu mô phỏng trên từng trình duyệt
+
+`sol-planner-v1` trong localStorage lưu nhà/mái, chiều dài, số tầng nhà bên và kiểu mái, hướng nhà, hướng/độ nghiêng pin, tọa độ từng tấm đã áp dụng, góc nhìn/zoom, tọa độ mô phỏng/múi giờ và cấu hình công suất/hao hụt/dự phòng. Khi mở lại, cấu hình mô phỏng ưu tiên hơn hướng/góc pin trong cookie dự báo điện cũ. Vị trí mô phỏng đã lưu không bị GPS tự động ghi đè; nút **Dùng vị trí hiện tại** cho phép cập nhật chủ động. Ngày/giờ bắt đầu theo hôm nay để tránh dùng ngày mô phỏng cũ.
+
+Dữ liệu gắn với trình duyệt và địa chỉ website, chưa đồng bộ tài khoản/thiết bị; xóa dữ liệu website sẽ xóa mô phỏng. Trình duyệt không cho lưu sẽ có thông báo ngay dưới mô hình. Dữ liệu sai định dạng/phiên bản hoặc ngoài giới hạn không được khôi phục. Không lưu riêng một mã định danh client hay gửi cấu hình nhà lên máy chủ.
+
+Trang `/sol-calculartor` ẩn cả mục **Thời gian có ánh sáng**, vẫn giữ thời gian mọc/lặn ở phần điều khiển. Kiểm thử lưu/khôi phục: `node tests/planner-state.test.cjs`; kiểm thử tải lại bản build, hủy bản nháp và kết quả gợi ý hết hạn: `bun run test:build`.
+
+
+### Sao lưu và khôi phục profile mô phỏng
+
+Cạnh nhãn **Bắc = 0°** ở tiêu đề mô hình, icon tải xuống **Sao lưu profile** tải file `sol-profile-<thời gian>.json` chứa cấu hình hiện tại, các vị trí pin đã áp dụng, góc nhìn, tọa độ/múi giờ (nếu đã có) và cấu hình điện. File được tạo ngay trên trình duyệt, không tải lên máy chủ. Có thể giữ nhiều file để lưu các phương án hoặc chuyển sang trình duyệt/thiết bị khác.
+
+Icon tải lên **Khôi phục profile từ file** đọc file JSON, kiểm tra định dạng/phiên bản và thông số trước khi thay mô phỏng hiện tại, rồi tự lưu trên trình duyệt. File sai định dạng, vượt 64 KB, vị trí pin chồng lấn/vượt mái hoặc thông số không hợp lệ bị từ chối; cấu hình hiện có được giữ nguyên. Khôi phục thay cấu hình hiện tại, nên xuất bản sao trước nếu cần giữ phương án cũ. File không có tọa độ sẽ giữ vị trí đang dùng. Tọa độ trong file là vị trí mô phỏng, nên chỉ chia sẻ file khi muốn chia sẻ cả vị trí đó.
+
+Nút cài đặt mô phỏng dùng icon bánh răng ở góc canvas. Các icon cài đặt/sao lưu/khôi phục giữ nhãn trợ năng và chú thích khi rê chuột, vùng bấm 44 px.

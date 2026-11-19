@@ -173,8 +173,8 @@ header{gap:16px}#theme-toggle{white-space:nowrap}
 .calculator-page .time-ticks{justify-content:center;font-size:10px;margin-top:8px}
 .planner-explanation{border-top:1px solid #e0e5db}.planner-explanation summary{font-size:11px;font-weight:500}
 .planner-note{padding:0 18px 12px;font-size:11px;margin:0}
-.calculator-page .workspace{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);align-items:start}
-.calculator-page #energy-dialog{width:100%;max-height:none;margin:0;padding:24px;scroll-margin-top:18px}
+.calculator-page .workspace{grid-template-columns:minmax(0,1fr);align-items:start}
+.calculator-page #energy-dialog{width:100%;min-width:0;max-width:none;grid-column:1/-1;max-height:none;margin:0;padding:24px;scroll-margin-top:18px}
 .calculator-page #energy-close,.calculator-page .compass-help{display:none}
 .calculator-page .energy-preview{font-size:12px;margin-top:16px}
 .calculator-page .settings-card{display:block;border:0;border-radius:0;padding:0 16px 16px}
@@ -249,3 +249,32 @@ header{gap:16px}#theme-toggle{white-space:nowrap}
 [data-theme=dark] .planner-controls select{background:#19282e}
 @media(max-width:1000px){.planner-settings .planner-controls{max-height:284px}}
 @media(max-width:760px){.planner-settings{top:8px;right:8px;max-width:calc(100% - 16px)}.planner-settings .planner-controls{max-height:calc(clamp(240px,38svh,340px) - 68px)}}
+
+#panel-layout-dialog{width:min(680px,94vw);max-height:92dvh;overflow:auto;border:1px solid #789080;border-radius:20px;padding:24px;background:var(--card,#fff);color:var(--text,#203c31)}
+#panel-layout-dialog::backdrop{background:#122d38aa;backdrop-filter:blur(4px)}
+#panel-layout-title{font-size:1.4rem;margin:0}
+#layout-plane{display:block;width:100%;height:min(52dvh,520px);margin:16px 0;touch-action:none;background:#f4f7f4;border-radius:12px}
+#layout-plane polygon{cursor:grab}#layout-plane polygon:focus{outline:none;stroke:#ffad27;stroke-width:.1}
+.layout-actions{display:flex;flex-wrap:wrap;gap:10px}.layout-actions button{min-height:44px}
+#layout-status{min-height:2.8em;font-size:.95rem}
+.calculator-page #date-controls[hidden],.calculator-page .weather-card[hidden]{display:none!important}
+@media(max-width:600px){#panel-layout-dialog{padding:16px}#layout-plane{height:48dvh}}
+#panel-layout-dialog p,#panel-layout-dialog button{font-size:1rem}
+[data-theme="dark"] #panel-layout-dialog{background:#213a32;color:#edf4eb}
+[data-theme="dark"] #panel-layout-dialog p{color:#c5d6cb}
+.planner-heading-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.planner-heading-actions .badge{white-space:nowrap}
+.planner-profile-actions{display:flex;align-items:center;gap:6px}
+.planner-profile-actions .planner-icon-button,.planner-settings>summary.planner-icon-button{display:flex;align-items:center;justify-content:center;width:44px;height:44px;min-height:44px;padding:10px;flex-shrink:0}
+.planner-icon-button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.planner-settings>summary.planner-icon-button{margin-left:auto;list-style:none}
+.planner-settings>summary.planner-icon-button::-webkit-details-marker{display:none}
+.planner-settings>summary.planner-icon-button:focus-visible{outline:3px solid #8b611c;outline-offset:3px;border-radius:10px}
+@media(max-width:600px){#panel-planner>.card-heading{flex-wrap:wrap;gap:10px}.planner-heading-actions{margin-left:auto}}
+#planner-backup-status:empty{display:none}
+
+.calculator-page .energy-fields{grid-template-columns:repeat(4,minmax(0,1fr))}
+.calculator-page .energy-fields label{min-width:0}
+.calculator-page #energy-dialog p{overflow-wrap:anywhere}
+@media(max-width:1000px){.calculator-page .energy-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.calculator-page .energy-fields{grid-template-columns:minmax(0,1fr)}.calculator-page #energy-calculate{width:100%;min-height:44px}}

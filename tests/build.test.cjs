@@ -12,33 +12,54 @@ assert.deepEqual([...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]), [f
 const bundle = fs.readFileSync(path.join(root, 'dist', find('app')), 'utf8');
 assert(!bundle.includes('sourceMappingURL'));
 assert(!bundle.includes('OPEN_METEO_API_KEY'));
-function checkPage(pathname) {
+async function checkPage(pathname, storage=new Map(), reloadOnly=false) {
+const prior=storage.get('sol-planner-v1');
 const nodes = new Map();
 const timers = [];
-const context2d = new Proxy({createLinearGradient:()=>({addColorStop(){}}),createRadialGradient:()=>({addColorStop(){}})}, {get:(o,k)=>o[k] || (()=>{})});
+const context2d = new Proxy({createLinearGradient:()=>({addColorStop(){}}),createRadialGradient:()=>({addColorStop(){}}),getImageData:()=>({data:new Uint8ClampedArray([20,80,120,255])})}, {get:(o,k)=>o[k] || (()=>{})});
 function node(id) {
   if (!nodes.has(id)) nodes.set(id, { nodeType:1,tagName:'DIV',childNodes:[],dataset:{},style:{},value:'',textContent:'',innerHTML:'',attrs:{},checked:true,
     setPointerCapture(){},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k];},hasAttribute(k){return k in this.attrs;},
-    addEventListener(k,fn){this[k]=fn;},checkValidity:()=>true,reportValidity:()=>true,getContext:()=>id==='panel-canvas'?context2d:null,clientWidth:700,clientHeight:470,
-    append(){},after(){},replaceWith(){},prepend(){},insertBefore(){},contains:()=>false,classList:{add(){},remove(){},toggle:()=>false},showModal(){},close(){},
+    addEventListener(k,fn){this[k]=fn;},checkValidity:()=>true,reportValidity:()=>true,getContext:()=>['panel-canvas','canvas'].includes(id)?context2d:null,clientWidth:700,clientHeight:470,
+    querySelector:selector=>node(selector.replace(/^#/,'')),focus(){},click(){if(!this.disabled)this.onclick?.();},append(){},remove(){},after(){},replaceWith(){},prepend(){},insertBefore(){},contains:()=>false,classList:{add(){},remove(){},toggle:()=>false},showModal(){this.open=true;},close(){this.open=false;},
   });
   return nodes.get(id);
 }
 for (const match of html.matchAll(/id="([^"]+)"[^>]*?(?:value="([^"]*)")?[^>]*>/g)) node(match[1]);
 for (const [id,value] of Object.entries({'energy-kwp':'11','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','house-length':'10','panel-count':'6','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
-let gpsSuccess;
-const context = { document:{ body:node('body'),documentElement:node('html'),cookie:'',hidden:false,createElement:node,getElementById:node,querySelector:node,addEventListener(){} },
-  localStorage:{getItem:()=>null,setItem(){}},sessionStorage:{getItem:()=>null,setItem(){}},location:{protocol:'https:',pathname},
+let gpsSuccess,exportedBlob;
+const context = { document:{ body:node('body'),documentElement:node('html'),cookie:'',hidden:false,createElement:node,createElementNS:(ns,tag)=>node(tag),getElementById:node,querySelector:node,addEventListener(){} },
+  localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},sessionStorage:{getItem:()=>null,setItem(){}},location:{protocol:'https:',pathname},
   navigator:{geolocation:{getCurrentPosition(success){gpsSuccess=success;}}},
   matchMedia:()=>({matches:false,addEventListener(){}}),isSecureContext:true,
   addEventListener(){},removeEventListener(){},MutationObserver:class{observe(){}disconnect(){}},ResizeObserver:class{observe(){}},
   setInterval:fn=>{timers.push(fn);return timers.length;},clearInterval(){},setTimeout,clearTimeout,Date,Math,URLSearchParams,AbortController,AbortSignal,Response,DOMException,
+  Blob,URL:{createObjectURL(blob){exportedBlob=blob;return 'blob:test-profile';},revokeObjectURL(){}},
+  ImageData:class{constructor(data,width,height){Object.assign(this,{data,width,height});}},
   fetch:async()=>Response.json({error:'mock unavailable'},{status:503}),
 };
 context.window=context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root,'dist',find('theme')),'utf8'),context);
 vm.runInContext(bundle,context);
+if(reloadOnly) {
+  const saved=JSON.parse(prior);
+  assert.equal(gpsSuccess,undefined,'Saved simulation location must survive instead of being overwritten by startup GPS');
+  assert.equal(Number(node('house-bearing').value),saved.config.house);
+  assert.equal(Number(node('panel-bearing').value),saved.config.bearing);
+  assert.equal(Number(node('panel-slope').value),saved.config.tilt);
+  assert.equal(Number(node('roof-type').value),saved.config.roof);
+  assert.equal(Number(node('neighbor-right').value),saved.config.right);
+  assert.equal(Number(node('house-length').value),saved.config.length);
+  assert.equal(node('panel-zoom-label').textContent,`${Math.round(saved.view.zoom*100)}%`);
+  const restored=JSON.parse(storage.get('sol-planner-v1'));
+  assert.deepEqual(restored.config,saved.config);
+  assert.deepEqual(restored.positions,saved.positions);
+  assert.deepEqual(restored.location,saved.location);
+  node('house-bearing').value=String((saved.config.house+20)%360);node('house-bearing').input();
+  assert.equal(Number(node('panel-bearing').value),(saved.config.bearing+20)%360,'House rotation delta must start at restored bearing');
+  return storage;
+}
 assert.equal(typeof gpsSuccess,'function','Startup must request GPS automatically');
 gpsSuccess({coords:{latitude:10.8231,longitude:106.6297,accuracy:10}});
 assert.match(node('rise-time').textContent,/\d{2}:\d{2}/);
@@ -92,10 +113,24 @@ if (pathname === '/sol-calculartor') {
   node('panel-view-front').onclick();node('panel-view-top').onclick();
   node('house-length').value='30';node('house-length').input();
   assert.equal(node('house-length-label').textContent,'30 m');
-  for(let i=0;i<20;i++)node('panel-add').onclick();
+  assert.equal(node('date-controls').hidden,true);
+  assert.equal(node('.sun-times').hidden,true);
+  assert.equal(node('.weather-card').hidden,true);
+  const savedBeforeDraft=storage.get('sol-planner-v1');
+  node('panel-arrange').onclick();
+  const before=Number(node('panel-count').value);
+  node('layout-add').onclick();
+  node('layout-cancel').onclick();
+  assert.equal(Number(node('panel-count').value),before,'Cancel must preserve committed layout');
+  assert.equal(storage.get('sol-planner-v1'),savedBeforeDraft,'Canceled popup edits must not change saved simulation');
+  node('panel-arrange').onclick();
+  for(let i=0;i<20;i++)node('layout-add').onclick();
+  node('layout-apply').onclick();
   assert.equal(Number(node('panel-count').value),12);
   assert.equal(node('panel-add').disabled,true);
-  for(let i=0;i<20;i++)node('panel-remove').onclick();
+  node('panel-remove').onclick();
+  for(let i=0;i<20;i++)node('layout-remove').onclick();
+  node('layout-apply').onclick();
   assert.equal(Number(node('panel-count').value),1);
   assert.equal(node('panel-remove').disabled,true);
   node('planner-setting-group').value='planner-neighbors';node('planner-setting-group').change();
@@ -110,22 +145,62 @@ if (pathname === '/sol-calculartor') {
   assert.equal(node('planner-settings').open,false);
   node('roof-type').value='1';node('roof-type').input();
   assert.equal(Number(node('energy-tilt').value),35,'Roof style must preserve panel inclination');
-  node('panel-optimize-year').onclick();
+  await node('panel-optimize-year').onclick();
   assert.match(node('panel-advice').textContent,/năm 2026/);
   assert.equal(Number(node('panel-slope').value),Number(node('energy-tilt').value));
-  node('panel-optimize').onclick();
+  await node('panel-optimize').onclick();
   assert.equal(Number(node('panel-bearing').value),Number(node('energy-azimuth').value));
+  const pendingSuggestion=node('panel-optimize').onclick();
+  node('panel-bearing').value='123';node('panel-bearing').input();
+  await pendingSuggestion;
+  assert.equal(Number(node('panel-bearing').value),123,'Stale recommendation must not override newer edits');
+  assert.equal(node('panel-optimize').disabled,false);
+  assert.match(node('panel-advice').textContent,/thay đổi/);
   node('play').onclick();const tick=timers.at(-1);
   for(let i=0;i<500;i++)tick();
   assert.equal(node('selected-time').textContent,node('set-time').textContent);
   assert.equal(node('play').dataset.playing,'false');
   assert.equal(node('energy-result').hidden,true,'Draft change must invalidate forecast');
+  node('planner-export').onclick();
+  assert(exportedBlob,'Backup button must create a downloadable file');
+  assert.match(node('a').download,/^sol-profile-.*\.json$/);
+  const exported=JSON.parse(await exportedBlob.text());
+  assert.deepEqual(exported.profile,JSON.parse(storage.get('sol-planner-v1')));
+  const beforeImport=storage.get('sol-planner-v1');
+  node('planner-import-file').files=[{size:5,text:async()=>'bad json'}];
+  await node('planner-import-file').change();
+  assert.equal(storage.get('sol-planner-v1'),beforeImport,'Invalid file must leave existing simulation intact');
+  assert.match(node('planner-backup-status').textContent,/Không khôi phục/);
+  node('planner-import-file').files=[{size:65537,text:async()=>{throw Error('Must reject before reading');}}];
+  await node('planner-import-file').change();
+  assert.match(node('planner-backup-status').textContent,/64 KB/);
+  const imported=exported.profile;
+  Object.assign(imported.config,{house:90,bearing:180,tilt:20,length:12,count:2,x:0,z:0});
+  imported.positions=[{x:-2,z:0},{x:2,z:0}];
+  imported.location={lat:20,lon:105,offset:7};
+  imported.view={yaw:2,pitch:.6,zoom:1.5};
+  imported.energy={kwp:25,loss:18,reserve:false};
+  node('planner-import-file').files=[{size:2000,text:async()=>JSON.stringify(exported)}];
+  await node('planner-import-file').change();
+  assert.equal(Number(node('panel-count').value),2);
+  assert.equal(Number(node('energy-kwp').value),25);
+  assert.equal(node('panel-zoom-label').textContent,'150%');
+  assert.deepEqual(JSON.parse(storage.get('sol-planner-v1')),imported,'Import must apply and persist the whole profile');
+  assert.equal(node('planner-import-file').value,'','Same file can be selected again');
+  assert.equal(node('planner-import').disabled,false);
+  gpsSuccess({coords:{latitude:1,longitude:2}});
+  assert.equal(Number(node('lat').value),20,'Late startup GPS must not overwrite imported location');
+
 } else {
   assert.equal(node('.weather-card').hidden,true);
   assert.equal(context.onSolarLocationChanged,undefined,'Home must not initialize energy forecasts');
 }
 assert.equal(typeof context.lat,'undefined','App lexical state must remain inside bundle closure');
+return storage;
 }
-checkPage('/');
-checkPage('/sol-calculartor');
-console.log('Production bundle checks passed: assets, no source maps, script startup, GPS, solar calculations and time slider.');
+(async()=>{
+await checkPage('/');
+const storage=await checkPage('/sol-calculartor');
+await checkPage('/sol-calculartor',storage,true);
+console.log('Production bundle checks passed: startup, simulation reload, canceled drafts, scene recommendations, stale-result rejection and time slider.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

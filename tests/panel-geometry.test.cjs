@@ -77,3 +77,50 @@ assert.equal(G.neighbors(5,3,30)[0].depth,30);
 assert(G.blocked([0,6.4,12],{azimuth:90,altitude:20},G.neighbors(0,5,30),0));
 assert(!G.blocked([0,6.4,12],{azimuth:90,altitude:20},G.neighbors(0,5,10),0));
 console.log('Variable house length, individual panels, roof bounds and neighbor shadow checks passed.');
+
+// Neighbor ridge blocks a ray that clears its flat roof; rotation and absence
+// must give the same physical result as the visible model.
+const ray={azimuth:90,altitude:10}, point=[0,7,0];
+assert(!G.blocked(point,ray,G.neighbors(0,2,10,false,false),0));
+assert(G.blocked(point,ray,G.neighbors(0,2,10,false,true),0));
+assert(G.blocked(G.rotate(point,90),{azimuth:180,altitude:10},G.neighbors(0,2,10,false,true),90));
+assert(!G.blocked(point,ray,G.neighbors(0,0,10,true,true),0));
+assert(!G.blocked([0,7,8],ray,G.neighbors(0,2,10,false,true),0),'Ray outside gable depth stays clear');
+assert(!G.blocked(point,{azimuth:90,altitude:80},G.neighbors(0,2,10,false,true),0));
+assert(G.validPlacement([{x:-2,z:0},{x:2,z:0}],35,8));
+assert(!G.validPlacement([{x:0,z:0},{x:.2,z:.3}],35,8),'Overlapping panels rejected');
+assert(!G.validPlacement([{x:3.8,z:0}],0,8),'Roof overflow rejected');
+for(let bearing=0;bearing<360;bearing+=15)for(const tilt of [0,15,45,90]) {
+  const positions=[{x:-2,z:-2},{x:2,z:2}];
+  const panels=G.individualPanels(positions,bearing,tilt,9.4);
+  panels.forEach((p,i)=>{
+    close((p[0][0]+p[2][0])/2,positions[i].x);
+    close((p[0][2]+p[2][2])/2,positions[i].z);
+    assert(p.every(v=>v[1]>=9.75-1e-9),'Every panel clears Thai ridge at all tilts');
+  });
+}
+console.log('Individual placement and Thai neighbor roof shading checks passed.');
+
+function sceneBest(samples,c,positions) {
+  const search=G.recommendScene(samples,c,positions);let result;
+  do {result=search.next();}while(!result.done);
+  return result.value;
+}
+const scene={length:10,count:1,roof:0,bearing:90,tilt:45,floors:0,x:0,z:0,house:0,left:0,right:5,leftRoof:0,rightRoof:1};
+const centers=[{x:0,z:0}], before=JSON.stringify(centers);
+const clearAndBlocked=[{azimuth:90,altitude:20},{azimuth:270,altitude:20}];
+const recommended=sceneBest(clearAndBlocked,scene,centers);
+assert(recommended.bearing>=255 && recommended.bearing<=285,'Avoid shaded eastern sky and face unobstructed western sky');
+assert(recommended.score>recommended.baseline,'Scene-aware recommendation improves over current placement');
+assert.equal(JSON.stringify(centers),before,'Optimization must not rearrange panel centers');
+assert(G.validPlacement(centers,recommended.bearing-scene.house,scene.length));
+const constrained=[{x:3.3,z:0},{x:3.3,z:2}];
+const constrainedScene={...scene,count:2,bearing:180};
+const constrainedBest=sceneBest(clearAndBlocked,constrainedScene,constrained);
+assert(G.validPlacement(constrained,constrainedBest.bearing,10),'Recommendation cannot rotate edge panels beyond roof or overlap');
+assert(constrainedBest.score>=constrainedBest.baseline);
+assert.equal(sceneBest([{azimuth:180,altitude:-10}],scene,centers).score,0);
+const flat=sceneBest([{azimuth:90,altitude:10}],{...scene,floors:1,right:2,rightRoof:0},centers);
+const thai=sceneBest([{azimuth:90,altitude:10}],{...scene,floors:1,right:2,rightRoof:1},centers);
+assert(thai.baseline<flat.baseline,'Optimizer includes the neighbor Thai ridge in its baseline score');
+console.log('Scene recommendation checks passed: neighbor shading, roof shape, improvement and layout constraints.');

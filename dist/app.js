@@ -93,7 +93,7 @@ function renderWeather(cloudCover, raining) {
   updateWeatherVisibility();
 }
 async function loadWeather(force = false) {
-  if (!globalThis.isSolarCalculator || !locationReady) return;
+  if (!globalThis.isSolarCalculator || globalThis.hideCurrentWeather || !locationReady) return;
   const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
   if (!force && key === weatherKey && Date.now() - weatherUpdated < 600000) return;
   weatherKey = key;

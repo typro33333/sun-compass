@@ -54,7 +54,9 @@
     $('feedback').textContent = 'Vui lòng cấp quyền vị trí để xem hướng nắng và dự báo tại nơi bạn đang đứng.';
     if (!window.isSecureContext) { failure('GPS cần HTTPS. Hãy mở ứng dụng bằng địa chỉ HTTPS.'); return; }
     if (!navigator.geolocation) { failure('Trình duyệt không hỗ trợ GPS. Hãy mở bằng Safari hoặc Chrome.'); return; }
+    const plannerRevision=globalThis.plannerLocationRevision;
     navigator.geolocation.getCurrentPosition(position => {
+      if(plannerRevision!==globalThis.plannerLocationRevision)return;
       lat = position.coords.latitude;
       lon = position.coords.longitude;
       $('lat').value = lat.toFixed(4);
@@ -68,9 +70,10 @@
       $('location-retry').hidden = true;
       refresh();
     }, error => {
+      if(plannerRevision!==globalThis.plannerLocationRevision)return;
       failure(error.code === 1 ? 'Quyền vị trí bị từ chối. Bật quyền vị trí trong cài đặt trang rồi bấm Thử lại GPS.' : 'Không lấy được GPS. Kiểm tra dịch vụ vị trí và kết nối, rồi thử lại.');
     }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   }
   $('location-retry').onclick = locate;
-  locate();
+  if(!globalThis.restorePlannerLocation?.())locate();
 })();
