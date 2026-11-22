@@ -157,38 +157,13 @@
     return true;
   }
 
-  function mounting(config) {
-    const c={...config};
-    if(c.roof && c.mount) {
-      c.bearing=(c.house+(c.mount===1?270:90))%360;
-      c.tilt=Math.atan(3/(c.width/2+.5))/rad;
-    }
-    return c;
-  }
-  function validRoofPlacement(config,positions,module=moduleFor(config.watts)||legacyModule) {
-    const c=mounting(config),shifted=positions.map(p=>({...p,x:p.x+(c.x||0),z:p.z-(c.z||0)}));
-    if(!validPlacement(shifted,c.bearing-c.house,c.length,c.width,module))return false;
-    if(c.roof && c.mount) {
-      const side=c.mount===1?-1:1;
-      return individualPanels(shifted,c.bearing-c.house,0,0,module).flat().every(p=>side*p[0]>=.02);
-    }
-    return true;
-  }
-  function packRoof(config,count=config.count) {
-    const c=mounting(config);
-    if(!c.roof || !c.mount)return packPanels(count,c.bearing-c.house,c.length,c.width,moduleFor(c.watts));
-    const side=c.mount===1?-1:1;
-    return packPanels(count,c.bearing-c.house,c.length,c.width/2-.04,moduleFor(c.watts)).map(p=>({...p,x:p.x+side*(c.width/4+.02)}));
-  }
-  const samplePoints=new WeakMap();
   function scene(config,positions) {
-    const c=mounting({width:8,x:0,z:0,...config}), module=moduleFor(c.watts);
+    const c={width:8,x:0,z:0,...config}, module=moduleFor(c.watts);
     if(['width','length','count','bearing','tilt','floors','x','z','house','left','right','roof','leftRoof','rightRoof'].some(k=>!Number.isFinite(c[k])) || c.width<=0 || c.length<=0 || c.tilt<0 || c.tilt>90 || !Number.isInteger(c.count) || c.count<1 || c.count>30 || positions?.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.z)||![0,90,180,270].includes(p.rotation??0)))throw Error('Geometry không hợp lệ.');
-    if(c.mount!==undefined && ![0,1,2].includes(c.mount))throw Error('Kiểu lắp pin không hợp lệ.');
-    if(!module || !positions?.length || positions.length!==c.count || !validRoofPlacement(c,positions,module))throw Error('Bố trí pin không hợp lệ.');
+    if(!module || !positions?.length || positions.length!==c.count || !validPlacement(positions.map(p=>({...p,x:p.x+c.x,z:p.z-c.z})),c.bearing-c.house,c.length,c.width,module))throw Error('Bố trí pin không hợp lệ.');
     const height=(c.floors+1)*3.2,rotateHouse=p=>rotate(p,c.house);
     // Exact same module dimensions, rotation, shifts and mounting height for render and energy.
-    const surfaces=individualPanels(positions,c.bearing-c.house,c.tilt,height+(c.roof?3:0),module).map(face=>face.map(([x,y,z])=>rotateHouse([x+c.x,c.roof && c.mount?roofHeight(x+c.x,height,true,c.width)+.12:y,z-c.z])));
+    const surfaces=individualPanels(positions,c.bearing-c.house,c.tilt,height+(c.roof?3:0),module).map(face=>face.map(([x,y,z])=>rotateHouse([x+c.x,y,z-c.z])));
     const adjacent=neighbors(c.left,c.right,c.length,c.leftRoof,c.rightRoof,c.width);
     const buildings=[{x:0,z:0,width:c.width,depth:c.length,height,main:true,thai:c.roof},...adjacent];
     const roofs=buildings.map(b=>[[b.x-b.width/2,b.height,-b.depth/2],[b.x+b.width/2,b.height,-b.depth/2],[b.x+b.width/2,b.height,b.depth/2],[b.x-b.width/2,b.height,b.depth/2]].map(rotateHouse));
@@ -204,15 +179,13 @@
     if(!Number.isInteger(grid)||grid<1||grid>30)throw Error('Lưới bóng che không hợp lệ.');
     const c=scene.config,ray=rotate(vector(sun.azimuth,sun.altitude),-c.house);
     const facing=incidence(sun,c.bearing,c.tilt);
-    let grids=samplePoints.get(scene);
-    if(!grids){grids=new Map();samplePoints.set(scene,grids);}
-    if(!grids.has(grid))grids.set(grid,scene.panels.map(({vertices:face})=>Array.from({length:grid*grid},(_,i)=>{
-      const u=(i%grid+.5)/grid,v=(Math.floor(i/grid)+.5)/grid;
-      return rotate(face[0].map((n,k)=>n+(face[1][k]-n)*u+(face[3][k]-n)*v),-c.house);
-    })));
-    const points=grids.get(grid),visible=sun.altitude>0 && facing>1e-12;
-    const panels=scene.panels.map(({id},index)=>{
-      const cells=points[index].map(p=>visible && !rayBlocked(p,ray,scene.volumes));
+    const panels=scene.panels.map(({id,vertices:face})=>{
+      const cells=Array.from({length:grid*grid},(_,i)=>{
+        if(sun.altitude<=0 || facing<=1e-12)return false;
+        const u=(i%grid+.5)/grid,v=(Math.floor(i/grid)+.5)/grid;
+        const p=face[0].map((n,k)=>n+(face[1][k]-n)*u+(face[3][k]-n)*v);
+        return !rayBlocked(rotate(p,-c.house),ray,scene.volumes);
+      });
       const litFraction=cells.filter(Boolean).length/cells.length,area=scene.module.width*scene.module.length;
       return {id,cells,litFraction,shadeFraction:sun.altitude>0 && facing>1e-12 ? 1-litFraction : null,area,litArea:area*litFraction};
     });
@@ -365,6 +338,6 @@
       moved:(best.positions || positions).filter((p,i)=>Math.hypot(p.x-positions[i].x,p.z-positions[i].z)>.05).length
     }};
   }
-  root.PanelGeometry = { scene, exposure, renderCells, mounting, validRoofPlacement, packRoof, moduleCatalog, moduleFor, packPanels, vector, angle, incidence, corners, shadow, rotate, neighbors, blocked, recommend, recommendScene, annualSamples, roofHeight, supports, panelLayout, individualPanels, validPlacement };
+  root.PanelGeometry = { scene, exposure, renderCells, moduleCatalog, moduleFor, packPanels, vector, angle, incidence, corners, shadow, rotate, neighbors, blocked, recommend, recommendScene, annualSamples, roofHeight, supports, panelLayout, individualPanels, validPlacement };
   if (typeof module !== 'undefined') module.exports = root.PanelGeometry;
 })(typeof window !== 'undefined' ? window : globalThis);

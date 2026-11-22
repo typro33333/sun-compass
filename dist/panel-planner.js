@@ -2,7 +2,7 @@
   if (!globalThis.isSolarCalculator) return;
   const canvas = $('panel-canvas'), ctx = canvas.getContext('2d'), G = PanelGeometry;
   let yaw = Math.PI-.6, pitch = .55, orbitKey = '', orbit = [], follow = false, previousHouse = 0, zoom = 1;
-  const controls = { watts:$('energy-watts'), width:$('house-width'), length:$('house-length'), count:$('panel-count'), roof:$('roof-type'), mount:$('roof-mount'), bearing:$('panel-bearing'), tilt:$('panel-slope'), floors:$('panel-floors'), x:$('panel-x'), z:$('panel-z'), house:$('house-bearing'), left:$('neighbor-left'), right:$('neighbor-right'), leftRoof:$('neighbor-left-roof'), rightRoof:$('neighbor-right-roof') };
+  const controls = { watts:$('energy-watts'), width:$('house-width'), length:$('house-length'), count:$('panel-count'), roof:$('roof-type'), bearing:$('panel-bearing'), tilt:$('panel-slope'), floors:$('panel-floors'), x:$('panel-x'), z:$('panel-z'), house:$('house-bearing'), left:$('neighbor-left'), right:$('neighbor-right'), leftRoof:$('neighbor-left-roof'), rightRoof:$('neighbor-right-roof') };
   $('module-catalog-body').innerHTML=G.moduleCatalog.map(m=>`<tr><td>${m.min}–${m.max} W</td><td>${Math.round(m.length*1000)} × ${Math.round(m.width*1000)} mm</td><td><a href="${m.source}" target="_blank" rel="noreferrer">${m.model}</a></td></tr>`).join('');
   let lastEnergyScene='',capacityKey='',capacity=0;
   let placedPanels=null, initialized=false, lastSaved='', recommendationKey='';
@@ -36,8 +36,8 @@
   }
   function getPositions(count,automatic=false) {
     const c=configuration();
-    if(!automatic && placedPanels && placedPanels.length===count && G.validRoofPlacement(c,placedPanels))return placedPanels;
-    return G.packRoof(c,count);
+    if(!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,G.moduleFor(c.watts)))return placedPanels;
+    return G.packPanels(count,c.bearing-c.house,c.length,c.width,G.moduleFor(c.watts));
   }
   const openLayout=createPanelLayoutEditor({getConfiguration:configuration,getPositions,apply:positions=>{
     placedPanels=positions.map(p=>({...p}));controls.count.value=positions.length;
@@ -59,25 +59,23 @@
   }
   globalThis.getEnergyScene=()=>G.scene(configuration(),getPositions(Number(controls.count.value)));
   function normalizePanels() {
-    const effective=G.mounting(configuration());
-    if(effective.roof && effective.mount){controls.bearing.value=$('energy-azimuth').value=effective.bearing;controls.tilt.value=$('energy-tilt').value=effective.tilt;}
     const c=configuration(),module=G.moduleFor(c.watts);
     if(!module)return;
-    if(!placedPanels || placedPanels.length!==c.count || !G.validRoofPlacement(c,placedPanels,module)) {
-      placedPanels=G.packRoof(c);
+    if(!placedPanels || placedPanels.length!==c.count || !G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,module)) {
+      placedPanels=G.packPanels(c.count,c.bearing-c.house,c.length,c.width,module);
       controls.count.value=placedPanels.length;controls.x.value=controls.z.value=0;
     }
     const count=placedPanels.length,kwp=count*c.watts/1000;
-    const nextCapacityKey=JSON.stringify([c.width,c.length,c.bearing-c.house,c.watts,c.roof,c.mount]);
-    if(nextCapacityKey!==capacityKey){capacityKey=nextCapacityKey;capacity=G.packRoof(c,30).length;}
+    const nextCapacityKey=JSON.stringify([c.width,c.length,c.bearing-c.house,c.watts]);
+    if(nextCapacityKey!==capacityKey){capacityKey=nextCapacityKey;capacity=G.packPanels(30,c.bearing-c.house,c.length,c.width,module).length;}
     $('energy-count').max=controls.count.max=30;
     if(initialized && Math.abs(Number($('energy-kwp').value)-kwp)>1e-9)globalThis.invalidateSolarPrediction?.();
     $('energy-count').value=count;$('energy-kwp').value=kwp.toFixed(3);
     $('module-description').textContent=`${count} tấm × ${c.watts} W = ${kwp.toFixed(3)} kWp · Dài ${Math.round(module.length*1000)} × rộng ${Math.round(module.width*1000)} mm · ${module.model}`;
     $('module-source').href=module.source;
-    $('roof-capacity').textContent=`Đã đặt ${count} tấm · Bố trí tự động tìm được chỗ cho ${capacity} tấm trên ${c.roof&&c.mount?'dốc '+(c.mount===1?'trái':'phải')+' của ':''}mái ${c.width} × ${c.length} m. Có thể sắp xếp thủ công; chỉ nhận vị trí không chồng lấn, không vượt mái, tối đa 30 tấm.`;
+    $('roof-capacity').textContent=`Đã đặt ${count} tấm · Bố trí tự động tìm được chỗ cho ${capacity} tấm trên mái ${c.width} × ${c.length} m. Có thể sắp xếp thủ công; chỉ nhận vị trí không chồng lấn, không vượt mái, tối đa 30 tấm.`;
     if(count<c.count) {
-      const reason=`Không xếp được ${c.count} tấm: bố trí tự động hiện tìm được ${count} tấm trên ${c.roof&&c.mount?'dốc '+(c.mount===1?'trái':'phải')+' của ':''}mái ${c.width} × ${c.length} m, với tấm ${module.length} × ${module.width} m và hướng tương đối ${Math.round(c.bearing-c.house)}°. Đã giữ ${count} tấm để không chồng lấn hoặc vượt mái. Hãy tăng chiều rộng/dài nhà, đổi hướng hoặc sắp xếp thủ công.`;
+      const reason=`Không xếp được ${c.count} tấm: bố trí tự động hiện tìm được ${count} tấm trên mái ${c.width} × ${c.length} m, với tấm ${module.length} × ${module.width} m và hướng tương đối ${Math.round(c.bearing-c.house)}°. Đã giữ ${count} tấm để không chồng lấn hoặc vượt mái. Hãy tăng chiều rộng/dài nhà, đổi hướng hoặc sắp xếp thủ công.`;
       $('panel-advice').textContent=reason;
       if(initialized)globalThis.showSolarNotice?.(reason,true);
     }
@@ -90,9 +88,6 @@
   function labels() {
     normalizePanels();
     const c = configuration();
-    $('roof-mount-setting').hidden=!c.roof;
-    for(const id of ['panel-bearing','panel-slope','energy-azimuth','energy-tilt'])$(id).disabled=!!(c.roof&&c.mount);
-    $('roof-mount-note').textContent=c.roof&&c.mount?`Áp mái ${c.mount===1?'trái':'phải'}: hướng ${c.bearing.toFixed(1)}°, nghiêng ${c.tilt.toFixed(1)}°, cách mái 12 cm. Không đặt tấm vượt đỉnh mái; số tấm có thể giảm theo diện tích một dốc.`:'Dựng khung trên đỉnh mái; có thể chỉnh hướng và độ nghiêng pin.';
     $('house-width-label').textContent=`${c.width} m`;
     $('house-length-label').textContent=`${c.length} m`;
     $('panel-count-label').textContent=`${c.count} tấm`;
@@ -175,19 +170,16 @@
   $('panel-suggestion-annual').onclick=async()=>{
     const run=++placementRun,key=placementKey(),c=configuration(),positions=getPositions(c.count).map(p=>({...p}));
     $('panel-suggestion-dialog').close();pendingPlacement=null;
-    globalThis.showSolarNotice?.('Đang tính toán cho các tấm pin năng lượng mặt trời…',true);
     $('placement-confirm').disabled=true;$('placement-comparison').hidden=true;
     $('placement-ranking').innerHTML='';$('placement-preview-status').textContent='Đang đánh giá kịch bản bức xạ năm…';previewDialog.showModal();
     try {
-      await new Promise(resolve=>setTimeout(resolve,30));
       if(!locationReady)throw Error('Cần vị trí trước khi đánh giá năm.');
       const annualPoa=Number($('placement-poa').value),spacing=Number($('placement-gap').value),year=Number($('date').value.slice(0,4));
       const climate=AnnualPlacement.scenario({year,location:{lat,lon,offset},config:c,annualPoa});
       const iterator=AnnualPlacement.propose({config:c,positions,system:globalThis.readEnergySystem(),scenario:climate,spacing,step:1});
       let next;
       do {
-        const batchStarted=Date.now();
-        do {next=iterator.next();} while(!next.done && Date.now()-batchStarted<12);
+        next=iterator.next();
         if(!next.done){$('placement-preview-status').textContent=`Đang xếp hạng ${next.value.completed}/${next.value.total} vị trí…`;await new Promise(resolve=>setTimeout(resolve,0));}
         if(run!==placementRun)return;
         if(key!==placementKey())throw Error('Cấu hình đã thay đổi. Hãy tạo đề xuất mới.');
@@ -202,7 +194,6 @@
   };
   async function optimize(annual = false, layout = false) {
     if (!locationReady) { $('panel-advice').textContent='Cần GPS hoặc nhập tọa độ trước khi gợi ý.';return; }
-    if(configuration().roof && configuration().mount)return $('panel-suggestion-annual').onclick();
     const year=Number($('date').value.slice(0,4));
     if (!Number.isInteger(year) || year<1) return;
     if($('panel-optimize').disabled)return;
@@ -216,8 +207,6 @@
     } else for(let time=15;time<1440;time+=30)samples.push(Solar.position($('date').value,time,lat,lon,offset));
     $('panel-optimize').disabled=$('panel-optimize-year').disabled=$('panel-layout-year').disabled=true;
     recommendationKey='';
-    globalThis.showSolarNotice?.('Đang tính toán cho các tấm pin năng lượng mặt trời…',true);
-    await new Promise(resolve=>setTimeout(resolve,30));
     $('panel-advice').textContent='Đang so sánh góc pin theo vị trí từng tấm, hướng nhà và bóng che nhà bên…';
     try {
       const search=G.recommendScene(samples,c,positions,layout);
@@ -261,10 +250,9 @@
   $('panel-suggestion-auto').onclick=()=>{suggestionDialog.close();return optimize(suggestionMode.annual,suggestionMode.layout);};
   $('panel-suggestion-rows').onclick=()=>{
     const c=configuration();
-    globalThis.showSolarNotice?.('Đang tính toán cho các tấm pin năng lượng mặt trời…',true);
     let system;
     try {system=globalThis.readEnergySystem();}catch(error){$('panel-suggestion-status').textContent=error.message;return;}
-    const positions=G.packRoof({...c,bearing:c.roof&&c.mount?c.bearing:c.house}).sort((a,b)=>a.z-b.z || a.x-b.x);
+    const positions=G.packPanels(c.count,0,c.length,c.width,G.moduleFor(c.watts)).sort((a,b)=>a.z-b.z || a.x-b.x);
     if(positions.length!==c.count){$('panel-suggestion-status').textContent=`Chỉ xếp được ${positions.length}/${c.count} tấm thành hàng. Hãy tăng kích thước mái hoặc chọn gợi ý tối ưu.`;return;}
     // Keep the existing round-robin tracker assignment, but interleave spatial
     // groups so panels sharing a tracker occupy consecutive roof rows.
@@ -276,13 +264,13 @@
     }
     const rowPositions=Array.from({length:c.count},(_,i)=>groups[i%trackers][Math.floor(i/trackers)]);
     suggestionDialog.close();$('placement-ranking').innerHTML='';
-    previewPlacement({...c,bearing:c.roof&&c.mount?c.bearing:c.house,x:0,z:0},rowPositions,`Xếp ${c.count} tấm thẳng theo ${trackers} nhóm MPPT. Đổi hướng pin thành ${c.roof&&c.mount?c.bearing:c.house}°, giữ nghiêng ${c.tilt}°. Bấm Áp dụng nếu đồng ý.`,()=>{
+    previewPlacement({...c,bearing:c.house,x:0,z:0},rowPositions,`Xếp ${c.count} tấm thẳng theo ${trackers} nhóm MPPT. Đổi hướng pin thành ${c.house}°, giữ nghiêng ${c.tilt}°. Bấm Áp dụng nếu đồng ý.`,()=>{
     placedPanels=rowPositions;
     controls.x.value=controls.z.value=0;
-    controls.bearing.value=$('energy-azimuth').value=c.roof&&c.mount?c.bearing:c.house;
+    controls.bearing.value=$('energy-azimuth').value=c.house;
     suggestionDialog.close();manual();labels();render();
     globalThis.invalidateSolarPrediction?.();
-    $('panel-explanation-text').textContent=`Đã xếp ${c.count} tấm thành hàng song song mép mái, hướng pin ${c.roof&&c.mount?c.bearing:c.house}°, giữ độ nghiêng ${c.tilt}°. Các nhóm MPPT nằm liền nhau theo thứ tự hàng: ${groups.map((g,i)=>`MPPT ${i+1}: ${g.length} tấm`).join('; ')}. Cách xếp ưu tiên hàng thẳng và gom nhóm, không tối ưu sản lượng theo nắng. Nhóm này dùng trong mô hình dự báo, chưa phải thiết kế đấu chuỗi điện.`;
+    $('panel-explanation-text').textContent=`Đã xếp ${c.count} tấm thành hàng song song mép mái, hướng pin ${c.house}°, giữ độ nghiêng ${c.tilt}°. Các nhóm MPPT nằm liền nhau theo thứ tự hàng: ${groups.map((g,i)=>`MPPT ${i+1}: ${g.length} tấm`).join('; ')}. Cách xếp ưu tiên hàng thẳng và gom nhóm, không tối ưu sản lượng theo nắng. Nhóm này dùng trong mô hình dự báo, chưa phải thiết kế đấu chuỗi điện.`;
     $('panel-explanation').hidden=false;$('panel-explanation').open=true;
     $('panel-advice').textContent='Đã xếp hàng theo nhóm MPPT. Bấm tính sản lượng để cập nhật dự báo.';
     });
@@ -477,7 +465,6 @@
   new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   globalThis.renderPanelPlanner=render;
   function applyProfile(state) {
-    controls.mount.value=state.config.mount||0;
     controls.watts.value=state.config.watts || 600;
     for(const [name,value] of Object.entries(state.config))controls[name].value=value;
     placedPanels=state.positions;

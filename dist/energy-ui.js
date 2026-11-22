@@ -86,10 +86,7 @@ async function calculateEnergy() {
   $('energy-result').hidden = true;
   $('energy-status').textContent = 'Đang lấy dự báo bức xạ theo giờ hôm nay…';
   $('energy-calculate').disabled = true;
-  globalThis.showSolarNotice('Đang tính toán cho các tấm pin năng lượng mặt trời…',true);
   try {
-    await new Promise(resolve=>setTimeout(resolve,30));
-    if(request!==energyRequest)return;
     const system=globalThis.readEnergySystem(),scene=globalThis.getEnergyScene();
     if(kwp>system.inverter.maxPvKw)throw Error('Công suất PV DC vượt giới hạn tiếp nhận của inverter.');
     const forecastLocation={lat,lon,offset},inputKey=forecastInputKey();

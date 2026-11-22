@@ -116,5 +116,4 @@
   new ResizeObserver(render).observe(canvas);
   new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   globalThis.renderSolarScene=render;
-  if(!globalThis.isSolarCalculator)select(true);
 })();

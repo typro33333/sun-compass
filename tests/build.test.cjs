@@ -20,7 +20,7 @@ const context2d = new Proxy({createLinearGradient:()=>({addColorStop(){}}),creat
 function node(id) {
   if (!nodes.has(id)) nodes.set(id, { nodeType:1,tagName:'DIV',childNodes:[],dataset:{},style:{},value:'',textContent:'',innerHTML:'',attrs:{},checked:true,
     setPointerCapture(){},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k];},hasAttribute(k){return k in this.attrs;},
-    addEventListener(k,fn){const previous=this[k];this[k]=(...args)=>{previous?.(...args);return fn(...args);};},checkValidity:()=>true,reportValidity:()=>true,getContext:()=>['panel-canvas','sun-canvas','canvas'].includes(id)?context2d:null,clientWidth:700,clientHeight:470,
+    addEventListener(k,fn){const previous=this[k];this[k]=(...args)=>{previous?.(...args);return fn(...args);};},checkValidity:()=>true,reportValidity:()=>true,getContext:()=>['panel-canvas','canvas'].includes(id)?context2d:null,clientWidth:700,clientHeight:470,
     querySelector:selector=>node(selector.replace(/^#/,'')),focus(){},click(){if(!this.disabled)this.onclick?.();},append(){},remove(){},after(){},replaceWith(){},prepend(){},insertBefore(){},contains:()=>false,classList:{add(){},remove(){},toggle:()=>false},showModal(){this.open=true;},close(){this.open=false;},
   });
   return nodes.get(id);
@@ -259,14 +259,6 @@ if (pathname === '/sol-calculartor') {
   assert.equal(rowsState.positions.length,2,'Row layout keeps all panels');
   assert.match(node('panel-explanation-text').textContent,/MPPT 1: 1 tấm; MPPT 2: 1 tấm/);
   assert.equal(node('panel-suggestion-dialog').open,false);
-  node('roof-type').value='1';node('roof-type').input();
-  node('roof-mount').value='1';node('roof-mount').input();
-  assert.equal(node('energy-tilt').disabled,true,'Flush roof fixes orientation');
-  assert.equal(Number(node('panel-bearing').value),(Number(node('house-bearing').value)+270)%360);
-  assert(context.PanelGeometry.validRoofPlacement(JSON.parse(storage.get('sol-planner-v1')).config,JSON.parse(storage.get('sol-planner-v1')).positions));
-  assert.equal(JSON.parse(storage.get('sol-planner-v1')).config.mount,1);
-  node('roof-mount').value='0';node('roof-mount').input();
-  assert.equal(node('energy-tilt').disabled,false,'Raised frame permits orientation edits');
   node('placement-poa').value='1600';node('placement-gap').value='0.02';
   const beforeAnnual=storage.get('sol-planner-v1');
   await node('panel-suggestion-annual').onclick();
@@ -286,7 +278,6 @@ if (pathname === '/sol-calculartor') {
 
 } else {
   assert.equal(node('.weather-card').hidden,true);
-  assert.equal(node('view-3d').attrs['aria-pressed'],'true','Home starts in 3D');
   assert.equal(context.onSolarLocationChanged,undefined,'Home must not initialize energy forecasts');
 }
 assert.equal(typeof context.lat,'undefined','App lexical state must remain inside bundle closure');

@@ -1,7 +1,6 @@
 // Offline prototype. Annual POA is an explicit user scenario, not weather data.
 (function(root) {
   const G=()=>root.PanelGeometry,E=()=>root.Energy;
-  const solarCache=new WeakMap();
   function scenario({year,location,config,annualPoa}) {
     if(!Number.isInteger(year)||year<1900||year>2100||!Number.isFinite(annualPoa)||annualPoa<=0||annualPoa>4000||!Number.isFinite(location?.lat)||Math.abs(location.lat)>90||!Number.isFinite(location.lon)||Math.abs(location.lon)>180||!Number.isFinite(location.offset)||location.offset< -12||location.offset>14)throw Error('Kịch bản bức xạ năm không hợp lệ.');
     const days=[];
@@ -26,7 +25,7 @@
   function valid(positions,c,spacing=.02) {
     const module=G().moduleFor(c.watts);
     // Inflate each footprint by half the gap on every side: conservative edge clearance too.
-    return G().validRoofPlacement(c,positions,{...module,width:module.width+spacing,length:module.length+spacing});
+    return G().validPlacement(positions,c.bearing-c.house,c.length,c.width,{...module,width:module.width+spacing,length:module.length+spacing});
   }
   function candidates(config,{spacing=.02,step=1}={}) {
     if(!Number.isFinite(spacing)||spacing<0||spacing>2||!Number.isFinite(step)||step<1||step>5)throw Error('Khoảng cách/lưới ứng viên không hợp lệ.');
@@ -38,11 +37,9 @@
   }
   function evaluate(config,positions,system,climate) {
     if(config.bearing!==climate.bearing || config.tilt!==climate.tilt)throw Error('Kịch bản bức xạ không khớp hướng/nghiêng.');
-    let sunAt=solarCache.get(climate);
-    if(!sunAt){const samples=new Map();sunAt=t=>{if(!samples.has(t)){const local=new Date((t+climate.location.offset*3600)*1000);samples.set(t,root.Solar.position(local.toISOString().slice(0,10),local.getUTCHours()*60+local.getUTCMinutes()+local.getUTCSeconds()/60,climate.location.lat,climate.location.lon,climate.location.offset));}return samples.get(t);};solarCache.set(climate,sunAt);}
     const scene=G().scene(config,positions),total={acKwh:0,dcKwh:0,shadeLossKwh:0,rawDcKwh:0};
     for(const d of climate.days) {
-      const r=E().estimateSystem(d.hourly,d.start,d.end,{...system,scene,location:climate.location,sunAt});
+      const r=E().estimateSystem(d.hourly,d.start,d.end,{...system,scene,location:climate.location});
       total.acKwh+=r.kwh*d.weight;total.dcKwh+=r.dcKwh*d.weight;total.shadeLossKwh+=r.shadeLossKwh*d.weight;total.rawDcKwh+=r.rawDcKwh*d.weight;
     }
     return {...total,shadeFraction:total.rawDcKwh?total.shadeLossKwh/total.rawDcKwh:0};
@@ -50,16 +47,14 @@
   function* propose({config,positions,system,scenario:climate,spacing=.02,step=1}) {
     // Normalize offsets in the draft only. Current layout stays untouched.
     const c={...config,x:0,z:0},manualPositions=positions.map(p=>({...p,x:p.x+config.x,z:p.z-config.z}));
-    const evaluated=new Map();
-    const score=(config,positions)=>{const key=JSON.stringify([config.count,positions]);if(!evaluated.has(key))evaluated.set(key,evaluate(config,positions,system,climate));return evaluated.get(key);};
-    const manual=score(c,manualPositions),spots=candidates(c,{spacing,step});
+    const manual=evaluate(c,manualPositions,system,climate),spots=candidates(c,{spacing,step});
     const seen=new Set(spots.map(p=>JSON.stringify([p.x,p.z,p.rotation||0])));
-    for(const p of [...manualPositions,...G().packRoof(c)]) {
+    for(const p of [...manualPositions,...G().packPanels(c.count,c.bearing-c.house,c.length,c.width,G().moduleFor(c.watts))]) {
       const key=JSON.stringify([p.x,p.z,p.rotation||0]);if(!seen.has(key)&&valid([p],c,spacing)){spots.push({...p});seen.add(key);}
     }
     const ranking=[];
     for(const position of spots) {
-      const value=score({...c,count:1},[position]);
+      const value=evaluate({...c,count:1},[position],system,climate);
       ranking.push({position,...value});
       yield {completed:ranking.length,total:spots.length};
     }
@@ -72,7 +67,7 @@
         if(valid([...next,r.position],c,spacing))next.push(r.position);
       }
       if(next.length===c.count) {
-        const value=score(c,next);
+        const value=evaluate(c,next,system,climate);
         if(!best || value.acKwh>best.value.acKwh+1e-9)best={positions:next,value};
       }
       yield {completed:spots.length,total:spots.length};
