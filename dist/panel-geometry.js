@@ -1,6 +1,36 @@
 // East/up/south world axes. Bearings run clockwise from geographic north.
 (function(root) {
   const rad = Math.PI / 180;
+  // Representative manufacturer models, checked 2026-11-22; not market averages.
+  const moduleCatalog = [
+    {min:550,max:565,length:2.278,width:1.134,model:'Jinko Tiger Pro 72HL4 (550–570 W)',source:'https://jinkosolarcdn.shwebspace.com/uploads/JKM550-570M-72HL4-(V)-F5-EN.pdf'},
+    {min:570,max:605,length:2.384,width:1.134,model:'Trina NEG19RC.20 (2023)',source:'https://static.trinasolar.com/sites/default/files/Datasheet_Vertex_NEG19RC.20.pdf'},
+    {min:610,max:630,length:2.382,width:1.134,model:'Jinko 66HL4M-BDV (605–630 W)',source:'https://jinkosolarcdn.shwebspace.com/uploads/JKM605-630N-66HL4M-BDV-F5-EN.pdf'},
+    {min:635,max:650,length:2.382,width:1.134,model:'Trina NEG19RC.20 (2025)',source:'https://pages.trinasolar.com/rs/567-KJK-096/images/Datasheet_Vertex_NEG19RC.20_2025_PD1M.pdf'},
+    {min:655,max:670,length:2.382,width:1.134,model:'Jinko 66QL6-BDV (650–670 W)',source:'https://www.jinkosolar.com/uploads/JKM650-670N-66QL6-BDV-F3-EN.pdf'},
+    {min:675,max:700,length:2.384,width:1.303,model:'Trina NEG21C.20 (2023)',source:'https://pages.trinasolar.com/rs/567-KJK-096/images/NEG21C.20_EN_2023_POWER_700W.pdf'}
+  ];
+  function moduleFor(watts) {
+    if(!Number.isInteger(watts) || watts%5 || watts<550 || watts>700)return null;
+    const row=moduleCatalog.find(r=>watts>=r.min && watts<=r.max);
+    return row?{...row,watts}:null;
+  }
+  const legacyModule={width:1.18,length:1.96};
+  function packPanels(count,bearing,length,width,module) {
+    let best=[];
+    for(const rotation of [0,90])for(let cols=1;cols<=count;cols++) {
+      const w=rotation?module.length:module.width,d=rotation?module.width:module.length;
+      const rows=Math.ceil(count/cols),next=[];
+      for(let i=0;i<count;i++) {
+        const center=rotate([(i%cols-(cols-1)/2)*(w+.02),0,(Math.floor(i/cols)-(rows-1)/2)*(d+.02)],bearing);
+        const point={x:center[0],z:center[2],rotation};
+        if(validPlacement([...next,point],bearing,length,width,module))next.push(point);
+      }
+      if(next.length>best.length)best=next;
+      if(best.length===count)return best;
+    }
+    return best;
+  }
   function vector(azimuth, altitude) {
     const a = azimuth * rad, h = altitude * rad;
     return [Math.sin(a) * Math.cos(h), Math.sin(h), -Math.cos(a) * Math.cos(h)];
@@ -21,7 +51,15 @@
     return [[-width/2,-depth/2],[width/2,-depth/2],[width/2,depth/2],[-width/2,depth/2]].map(([u,v]) => center.map((c,i)=>c+u*right[i]+v*uphill[i]));
   }
   function panelLayout(count, bearing, tilt, height, x, z, length, width = 8) {
-    const columns=Math.min(4,Math.ceil(Math.sqrt(count))), rows=Math.ceil(count/columns);
+    let columns=Math.min(4,Math.ceil(Math.sqrt(count))), rows=Math.ceil(count/columns);
+    // Pick a full-size grid that fits narrow roofs; never shrink the modules.
+    const options=[];
+    for(let cols=1;cols<=count;cols++) {
+      const rs=Math.ceil(count/cols), shape=corners(bearing,0,0,0,0,cols*1.2,rs*2);
+      if(shape.every(p=>Math.abs(p[0])<=width/2+1e-8 && Math.abs(p[2])<=length/2+1e-8))options.push({cols,rs});
+    }
+    options.sort((a,b)=>a.cols*a.rs-b.cols*b.rs || Math.abs(a.cols-a.rs)-Math.abs(b.cols-b.rs));
+    if(options.length){columns=options[0].cols;rows=options[0].rs;}
     let outline=corners(bearing,tilt,height,0,0,columns*1.2,rows*2);
     const extent=axis=>Math.max(...outline.map(p=>Math.abs(p[axis])));
     const limitX=Math.max(0,width/2-extent(0)), limitZ=Math.max(0,length/2-extent(2));
@@ -81,11 +119,11 @@
     return sun.altitude>0 && rayBlocked(rotate(point,-bearing),rotate(vector(sun.azimuth,sun.altitude),-bearing),occluders(buildings));
   }
 
-  function individualPanels(positions,bearing,tilt,height) {
-    return positions.map(({x,z})=>corners(bearing,tilt,height,x,z,1.18,1.96));
+  function individualPanels(positions,bearing,tilt,height,module = legacyModule) {
+    return positions.map(({x,z,rotation=0})=>corners(bearing,tilt,height,x,z,rotation%180===90?module.length:module.width,rotation%180===90?module.width:module.length));
   }
-  function validPlacement(positions,bearing,length,width = 8) {
-    const polygons=individualPanels(positions,bearing,0,0);
+  function validPlacement(positions,bearing,length,width = 8,module = legacyModule) {
+    const polygons=individualPanels(positions,bearing,0,0,module);
     if(polygons.some(p=>p.some(([x,,z])=>Math.abs(x)>width/2+1e-8 || Math.abs(z)>length/2+1e-8)))return false;
     for(let i=0;i<polygons.length;i++)for(let j=0;j<i;j++) {
       const a=polygons[i],b=polygons[j];
@@ -125,12 +163,12 @@
   // Incremental search lets the UI yield while evaluating the current scene.
   // Keep each panel's center fixed; reject rotations that break the layout.
   function* recommendScene(samples,config,positions,layout = false) {
-    const c={width:8,...config}, height=(c.floors+1)*3.2+(c.roof?3:0);
+    const c={width:8,...config}, module=moduleFor(config.watts) || legacyModule, height=(c.floors+1)*3.2+(c.roof?3:0);
     const volumes=occluders(neighbors(c.left,c.right,c.length,c.leftRoof,c.rightRoof,c.width));
     const rays=samples.filter(s=>s.altitude>0).map(s=>({world:vector(s.azimuth,s.altitude),local:rotate(vector(s.azimuth,s.altitude),-c.house),weight:s.weight??1}));
-    function score(bearing,tilt,grid,placement = positions) {
+    function score(bearing,tilt,grid,placement = positions,ignoreShade = false) {
       const normal=vector(bearing,90-tilt);
-      const panels=individualPanels(placement,bearing-c.house,tilt,height);
+      const panels=individualPanels(placement,bearing-c.house,tilt,height,module);
       const points=panels.flatMap(p=>Array.from({length:grid*grid},(_,i)=>{
         const u=(i%grid+.5)/grid,v=(Math.floor(i/grid)+.5)/grid;
         return p[0].map((n,k)=>n+(p[1][k]-n)*u+(p[3][k]-n)*v+(k===0?c.x:k===2?-c.z:0));
@@ -140,7 +178,7 @@
         const incidence=Math.max(0,normal.reduce((sum,n,i)=>sum+n*ray.world[i],0));
         if(!incidence)continue;
         let visible=points.length;
-        if(volumes.length)for(const point of points)if(rayBlocked(point,ray.local,volumes))visible--;
+        if(!ignoreShade && volumes.length)for(const point of points)if(rayBlocked(point,ray.local,volumes))visible--;
         total+=incidence*ray.world[1]*ray.weight*visible/points.length;
       }
       return total;
@@ -151,9 +189,9 @@
       bearing=(bearing+360)%360;tilt=Math.max(0,Math.min(90,tilt));
       const key=bearing+','+tilt;
       if(seen.has(key))return;seen.add(key);
-      if(!validPlacement(positions,bearing-c.house,c.length,c.width))return;
-      const shifted=positions.map(p=>({x:p.x+c.x,z:p.z-c.z}));
-      if(!validPlacement(shifted,bearing-c.house,c.length,c.width))return;
+      if(!validPlacement(positions,bearing-c.house,c.length,c.width,module))return;
+      const shifted=positions.map(p=>({...p,x:p.x+c.x,z:p.z-c.z}));
+      if(!validPlacement(shifted,bearing-c.house,c.length,c.width,module))return;
       candidates.push({bearing,tilt,score:score(bearing,tilt,2)});
     }
     candidate(c.bearing,c.tilt);
@@ -172,15 +210,15 @@
     }
     if (layout) {
       best={...best,positions:positions.map(p=>({...p}))};
-      const automatic=panelLayout(positions.length,best.bearing-c.house,0,0,0,0,c.length,c.width).panels.map(p=>({x:(p[0][0]+p[2][0])/2,z:(p[0][2]+p[2][2])/2}));
+      const automatic=packPanels(positions.length,best.bearing-c.house,c.length,c.width,module);
       // Compare the current pattern and a regular grid across the available roof.
-      for (const base of [positions,automatic]) {
-        const corners=individualPanels(base,best.bearing-c.house,0,0).flat();
+      for (const base of [positions,automatic].filter(p=>p.length===positions.length)) {
+        const corners=individualPanels(base,best.bearing-c.house,0,0,module).flat();
         const minX=-c.width/2-Math.min(...corners.map(p=>p[0]))-c.x,maxX=c.width/2-Math.max(...corners.map(p=>p[0]))-c.x;
         const minZ=-c.length/2-Math.min(...corners.map(p=>p[2]))+c.z,maxZ=c.length/2-Math.max(...corners.map(p=>p[2]))+c.z;
         for(let ix=0;ix<=4;ix++)for(let iz=0;iz<=4;iz++) {
-          const next=base.map(p=>({x:p.x+minX+(maxX-minX)*ix/4,z:p.z+minZ+(maxZ-minZ)*iz/4}));
-          if(validPlacement(next,best.bearing-c.house,c.length,c.width) && validPlacement(next.map(p=>({x:p.x+c.x,z:p.z-c.z})),best.bearing-c.house,c.length,c.width)) {
+          const next=base.map(p=>({...p,x:p.x+minX+(maxX-minX)*ix/4,z:p.z+minZ+(maxZ-minZ)*iz/4}));
+          if(validPlacement(next,best.bearing-c.house,c.length,c.width,module) && validPlacement(next.map(p=>({...p,x:p.x+c.x,z:p.z-c.z})),best.bearing-c.house,c.length,c.width,module)) {
             const value=score(best.bearing,best.tilt,6,next);
             if(value>best.score+1e-9)best={...best,positions:next,score:value};
           }
@@ -190,14 +228,14 @@
     }
     if (layout && rays.length) {
       const bearing=best.bearing,tilt=best.tilt;
-      const footprint=individualPanels([{x:0,z:0}],bearing-c.house,0,0)[0];
+      const footprint=individualPanels([{x:0,z:0}],bearing-c.house,0,0,module)[0];
       const ex=Math.max(...footprint.map(p=>Math.abs(p[0]))),ez=Math.max(...footprint.map(p=>Math.abs(p[2])));
       const spots=[];
       const step=.5;
       for(let x=-c.width/2+ex;x<=c.width/2-ex+1e-8;x+=step) {
         for(let z=-c.length/2+ez;z<=c.length/2-ez+1e-8;z+=step) {
           const p={x:x-c.x,z:z+c.z};
-          if(!validPlacement([p],bearing-c.house,c.length,c.width))continue;
+          if(!validPlacement([p],bearing-c.house,c.length,c.width,module))continue;
           spots.push({p,value:score(bearing,tilt,3,[p])});
         }
         yield;
@@ -208,7 +246,7 @@
         const next=[spots[seed].p];
         for(const spot of spots) {
           if(next.length===positions.length)break;
-          if(validPlacement([...next,spot.p],bearing-c.house,c.length,c.width))next.push(spot.p);
+          if(validPlacement([...next,spot.p],bearing-c.house,c.length,c.width,module))next.push(spot.p);
         }
         if(next.length===positions.length) {
           const value=score(bearing,tilt,6,next);
@@ -220,7 +258,7 @@
       for(let i=0;i<positions.length;i++) {
         const rest=best.positions.filter((_,j)=>j!==i);
         for(const spot of spots) {
-          if(!validPlacement([...rest,spot.p],bearing-c.house,c.length,c.width))continue;
+          if(!validPlacement([...rest,spot.p],bearing-c.house,c.length,c.width,module))continue;
           const next=best.positions.map((p,j)=>j===i?spot.p:p);
           const value=score(bearing,tilt,6,next);
           if(value>best.score+1e-9)best={...best,positions:next.map(p=>({...p})),score:value};
@@ -229,8 +267,15 @@
         yield;
       }
     }
-    return {...best,baseline:current.score};
+    const baselineClear=score(c.bearing,c.tilt,6,positions,true);
+    const bestClear=score(best.bearing,best.tilt,6,best.positions || positions,true);
+    return {...best,baseline:current.score,explanation:{
+      beforeShade:baselineClear>0?1-current.score/baselineClear:0,
+      afterShade:bestClear>0?1-best.score/bestClear:0,
+      samples:samples.length, neighbors:volumes.length>0,
+      moved:(best.positions || positions).filter((p,i)=>Math.hypot(p.x-positions[i].x,p.z-positions[i].z)>.05).length
+    }};
   }
-  root.PanelGeometry = { vector, angle, incidence, corners, shadow, rotate, neighbors, blocked, recommend, recommendScene, annualSamples, roofHeight, supports, panelLayout, individualPanels, validPlacement };
+  root.PanelGeometry = { moduleCatalog, moduleFor, packPanels, vector, angle, incidence, corners, shadow, rotate, neighbors, blocked, recommend, recommendScene, annualSamples, roofHeight, supports, panelLayout, individualPanels, validPlacement };
   if (typeof module !== 'undefined') module.exports = root.PanelGeometry;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -31,3 +31,17 @@ assert.equal(State.validate(legacy).config.width,8,'Old profiles default to 8 m 
 const wide={...state,config:{...config,width:20},positions:[{x:-8,z:0},{x:8,z:0}]};
 assert.deepEqual(State.importBackup(State.exportBackup(wide)),wide);
 assert.equal(State.validate({...wide,config:{...wide.config,width:31}}),null);
+const thirtyPositions=globalThis.PanelGeometry.panelLayout(30,180,0,0,0,0,30,14).panels.map(p=>({x:(p[0][0]+p[2][0])/2,z:(p[0][2]+p[2][2])/2}));
+
+const thirty={...state,config:{...config,width:14,length:30,count:30,house:0,bearing:180},positions:thirtyPositions};
+assert.deepEqual(State.importBackup(State.exportBackup(thirty)),thirty);
+assert.equal(State.validate({...thirty,config:{...thirty.config,count:31}}),null);
+assert.equal(State.validate({...state,config:{...config,width:2.8}}),null);
+const rotated={...state,positions:state.positions.map(p=>({...p,rotation:90}))};
+assert.deepEqual(State.importBackup(State.exportBackup(rotated)),rotated);
+assert.equal(State.validate({...state,positions:state.positions.map(p=>({...p,rotation:45}))}),null);
+const module600=globalThis.PanelGeometry.moduleFor(600);
+const dimensioned={...state,config:{...config,watts:600,width:3,length:8,count:6,house:0,bearing:180},positions:globalThis.PanelGeometry.packPanels(6,180,8,3,module600),energy:{...state.energy,kwp:3.6}};
+assert.deepEqual(State.importBackup(State.exportBackup(dimensioned)),dimensioned);
+assert.equal(State.validate({...dimensioned,config:{...dimensioned.config,watts:701}}),null);
+assert.equal(State.validate({...dimensioned,positions:dimensioned.positions.map((p,i)=>i===0?{...p,x:1.4}:p)}),null);

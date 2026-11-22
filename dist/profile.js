@@ -1,7 +1,7 @@
 (function (root) {
   const name = 'sol_pv_profile';
   function valid(p) {
-    return p?.version === 1 && [['kwp', 0.1, 100000], ['loss', 0, 80], ['tilt', 0, 90], ['azimuth', 0, 360], ['lat', -90, 90], ['lon', -180, 180], ['offset', -12, 14]].every(([key, min, max]) => Number.isFinite(p[key]) && p[key] >= min && p[key] <= max);
+    return p?.version === 1 && (p.watts===undefined || (Number.isInteger(p.watts)&&p.watts>=550&&p.watts<=700&&p.watts%5===0&&Number.isInteger(p.count)&&p.count>=1&&p.count<=30&&Math.abs(p.kwp-p.count*p.watts/1000)<1e-9)) && [['kwp', 0.1, 100000], ['loss', 0, 80], ['tilt', 0, 90], ['azimuth', 0, 360], ['lat', -90, 90], ['lon', -180, 180], ['offset', -12, 14]].every(([key, min, max]) => Number.isFinite(p[key]) && p[key] >= min && p[key] <= max);
   }
   function read(storage = root.localStorage) {
     try { const profile = JSON.parse(storage.getItem(name)); return valid(profile) ? profile : null; }

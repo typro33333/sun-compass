@@ -247,7 +247,7 @@ Menu **Cài đặt mô phỏng** nằm ở góc trên bên phải canvas, mặc 
 
 Chọn mái bằng hoặc mái Thái hai dốc (đỉnh cao 3 m). Mái Thái dùng giàn pin vượt đỉnh mái, chân đỡ chạm mặt mái dốc và được vẽ theo chiều sâu, chưa hỗ trợ pin áp theo mặt mái. Gợi ý cả năm lấy mẫu 12 ngày giữa tháng, mỗi 30 phút và gia quyền theo số ngày từng tháng. Tìm thô hướng mỗi 15° và độ nghiêng mỗi 10°, tinh chỉnh vùng tốt theo bước 5°, kiểm tra các ứng viên cuối với 36 ô/tấm. Điểm là tổng cos góc tới dương × sin độ cao mặt trời × tỷ lệ pin không bị nhà bên che. Giữ nguyên tâm từng tấm, loại hướng gây chồng lấn/vượt mái. Đây là gợi ý gần đúng, đã xét bóng che nhà bên và mái Thái, chưa xét thời tiết hoặc bóng che giữa các tấm, không dự báo điện năm. Nút gợi ý áp dụng trực tiếp hướng/góc vào cấu hình điện, cần tính lại sản lượng.
 
-Trong dropdown, **Nhà chính & mái** cho phép đổi chiều dài 8–30 m (ngang 8 m); thân nhà, mái và chiều dài nhà bên cập nhật cùng nhau. **Nhà bên trái / phải** chỉnh độc lập 0–5 tầng mỗi bên. **Tấm pin & hướng tối ưu** có nút thêm/bớt 1–12 tấm, xếp thành cụm các tấm khoảng 1,2 × 2 m; vị trí tự giới hạn trong mái khi thay đổi hướng, kích thước hoặc số lượng. Bóng che được tính trên các tấm đang hiển thị. Số tấm minh họa không tự đổi tổng công suất kWp của dự báo.
+Trong dropdown, **Nhà chính & mái** cho phép đổi chiều dài 8–30 m (ngang 8 m); thân nhà, mái và chiều dài nhà bên cập nhật cùng nhau. **Nhà bên trái / phải** chỉnh độc lập 0–5 tầng mỗi bên. **Tấm pin & hướng tối ưu** có nút thêm/bớt 1–30 tấm, xếp thành cụm các tấm khoảng 1,2 × 2 m; vị trí tự giới hạn trong mái khi thay đổi hướng, kích thước hoặc số lượng. Bóng che được tính trên các tấm đang hiển thị. Số tấm minh họa không tự đổi tổng công suất kWp của dự báo.
 
 
 ### Bố trí pin trên mặt phẳng và che nắng mái Thái
@@ -287,4 +287,23 @@ Nút cài đặt mô phỏng dùng icon bánh răng ở góc canvas. Các icon c
 
 Mô phỏng trong năm: kéo thanh ngày hoặc bấm **Chạy cả năm** (3 ngày mỗi bước), giữ nguyên giờ địa phương để so sánh các mùa. Có hỗ trợ năm nhuận, dừng ở cuối năm và khi chuyển sang mô phỏng trong ngày. Hai nút icon đặt pin/theo la bàn nằm trên canvas; khung cài đặt có vùng cuộn cao hơn.
 
-Chiều rộng nhà chính chỉnh từ 8–30 m, bước 0,5 m; mái, giàn đỡ, mặt phẳng bố trí và vị trí nhà bên cập nhật theo chiều rộng. Profile cũ thiếu chiều rộng mặc định 8 m. Gợi ý bố trí cả năm bổ sung tìm vị trí riêng cho từng tấm trên lưới 0,5 m, thử nhiều điểm khởi đầu, cho phép thành cụm hoặc rời rạc; giữ số tấm, không chồng nhau/vượt mái, chỉ thay bố trí khi chỉ số đón nắng tăng. Đây là tìm kiếm gần đúng có xét bóng nhà bên; chưa mô phỏng bóng che lẫn nhau giữa các tấm, khoảng lối đi hay yêu cầu kết cấu thi công.
+Chiều rộng nhà chính chỉnh từ 3–30 m, bước 0,2 m; chiều dài 8–30 m, bước 0,5 m; nhà mới mặc định 3 × 8 m; mái, giàn đỡ, mặt phẳng bố trí và vị trí nhà bên cập nhật theo chiều rộng. Profile cũ thiếu chiều rộng mặc định 8 m. Gợi ý bố trí cả năm bổ sung tìm vị trí riêng cho từng tấm trên lưới 0,5 m, thử nhiều điểm khởi đầu, cho phép thành cụm hoặc rời rạc; giữ số tấm, không chồng nhau/vượt mái, chỉ thay bố trí khi chỉ số đón nắng tăng. Đây là tìm kiếm gần đúng có xét bóng nhà bên; chưa mô phỏng bóng che lẫn nhau giữa các tấm, khoảng lối đi hay yêu cầu kết cấu thi công.
+
+Trong **Sắp xếp tấm pin**, chọn tấm và bấm **Xoay tấm 90°** hoặc phím **R** để đổi ngang/dọc. Góc này xoay kích thước tấm trên mặt phẳng lắp, giữ hướng đón nắng/độ nghiêng chung. Kéo thả giữ góc xoay; chỉ lưu khi áp dụng, Hủy bỏ thay đổi. Kiểm tra va chạm, 3D, bóng che và file backup đều dùng cùng góc xoay. Sau khi gợi ý, mục **Vì sao bố trí tấm pin như vậy?** trình bày hướng/nghiêng được chọn, số tấm di chuyển và chỉ số che nắng trước/sau theo mẫu mô phỏng; giải thích ẩn khi cấu hình thay đổi.
+
+### Công suất và kích thước thực của module
+
+Nhập **số tấm × W/tấm**, tổng kWp = số tấm đã bố trí × W / 1000 (chỉ đọc). Hỗ trợ 550–700 W theo bước 5 W, tối đa 30 tấm và giới hạn hình học của mái. Bảng tham chiếu theo **model hãng**, không phải trung bình thị trường hoặc một quy luật suy kích thước từ W; được kiểm tra ngày 22/11/2026:
+
+| W được chọn | Dài × rộng (mm) | Nguồn/model |
+|---|---|---|
+| 550–565 | 2278 × 1134 | [Jinko 72HL4 550–570 W](https://jinkosolarcdn.shwebspace.com/uploads/JKM550-570M-72HL4-(V)-F5-EN.pdf) |
+| 570–605 | 2384 × 1134 | [Trina NEG19RC.20 2023](https://static.trinasolar.com/sites/default/files/Datasheet_Vertex_NEG19RC.20.pdf) |
+| 610–630 | 2382 × 1134 | [Jinko 66HL4M-BDV](https://jinkosolarcdn.shwebspace.com/uploads/JKM605-630N-66HL4M-BDV-F5-EN.pdf) |
+| 635–650 | 2382 × 1134 | [Trina NEG19RC.20 2025](https://pages.trinasolar.com/rs/567-KJK-096/images/Datasheet_Vertex_NEG19RC.20_2025_PD1M.pdf) |
+| 655–670 | 2382 × 1134 | [Jinko 66QL6-BDV](https://www.jinkosolar.com/uploads/JKM650-670N-66QL6-BDV-F3-EN.pdf) |
+| 675–700 | 2384 × 1303 | [Trina NEG21C.20](https://pages.trinasolar.com/rs/567-KJK-096/images/NEG21C.20_EN_2023_POWER_700W.pdf) |
+
+Ví dụ: 6 tấm 600 W = 3,6 kWp; mỗi tấm dài 2,384 m, rộng 1,134 m. Mô hình, kéo thả, xoay, kiểm tra mép mái/va chạm và tìm bố trí đều dùng cùng kích thước. Xếp tự động chừa khe 20 mm, thử cả ngang/dọc; giới hạn hình học kiểm tra theo kích thước chưa nghiêng (bảo thủ), chưa trừ khoảng bảo trì. Sức chứa tự động là phương án tìm được, không khẳng định cực đại của mọi cách xếp rời rạc. Khi mái/kích thước đổi, xếp lại và giảm số tấm nếu cần, rồi tính lại kWp; kết quả dự báo cũ bị ẩn.
+
+Profile mới lưu W/tấm và số tấm; kWp được suy ra, không dùng số nhập tay cũ. Profile cũ chưa có W/tấm dùng tham chiếu 600 W khi mở, kiểm tra/xếp lại vị trí theo kích thước thật. Bảng nguồn được lưu trong `PanelGeometry.moduleCatalog`, không tải dữ liệu web mỗi lần mô phỏng.

@@ -150,3 +150,36 @@ assert(free.score>free.baseline);
 const shifts=free.positions.map((p,i)=>[p.x-freeBefore[i].x,p.z-freeBefore[i].z]);
 assert(shifts.some(p=>Math.hypot(p[0]-shifts[0][0],p[1]-shifts[0][1])>.1),'Move individual panels, not only translate the whole group');
 console.log('Variable width and independent panel placement checks passed.');
+for(const [count,width,length] of [[6,3,8],[30,14,30]]) {
+  const layout=G.panelLayout(count,180,0,0,0,0,length,width);
+  const positions=layout.panels.map(p=>({x:(p[0][0]+p[2][0])/2,z:(p[0][2]+p[2][2])/2}));
+  assert.equal(positions.length,count);
+  assert(G.validPlacement(positions,180,length,width),'Automatic layout fits narrow roofs and 30-panel roofs');
+}
+const portrait=G.individualPanels([{x:0,z:0}],0,0,0)[0];
+const landscape=G.individualPanels([{x:0,z:0,rotation:90}],0,0,0)[0];
+close(Math.max(...portrait.map(p=>p[0]))-.0,.59);
+close(Math.max(...landscape.map(p=>p[0]))-.0,.98);
+assert(G.validPlacement([{x:3.2,z:0}],0,10,8));
+assert(!G.validPlacement([{x:3.2,z:0,rotation:90}],0,10,8),'Rotation cannot cross roof edge');
+assert(!G.validPlacement([{x:0,z:0,rotation:90},{x:1.3,z:0}],0,10,8),'Rotation cannot overlap another module');
+assert(free.explanation.beforeShade>=0 && free.explanation.afterShade>=0);
+assert(free.explanation.samples===2 && free.explanation.moved>0);
+for(let watts=550;watts<=700;watts+=5) {
+  const module=G.moduleFor(watts);
+  assert(module && module.source.startsWith('https://'));
+  for(const bearing of [0,30,90]) {
+    const positions=G.packPanels(30,bearing,8,3,module);
+    assert(positions.length>0 && positions.length<30);
+    assert(G.validPlacement(positions,bearing,8,3,module));
+    const geometry=G.individualPanels([{x:0,z:0}],0,0,0,module)[0];
+    close(Math.max(...geometry.map(p=>p[2]))-Math.min(...geometry.map(p=>p[2])),module.length);
+  }
+}
+assert.equal(G.moduleFor(600).length,2.384);
+assert.equal(G.moduleFor(600).width,1.134);
+assert.equal(G.moduleFor(700).width,1.303);
+for(const watts of [549,701,601,NaN,Infinity])assert.equal(G.moduleFor(watts),null);
+const six=G.packPanels(30,180,8,3,G.moduleFor(600));
+assert.equal(six.length,6,'3 × 8 m roof fits six portrait 600 W modules in regular layout');
+console.log('Module catalog checks passed: 31 power bins, exact dimensions and constrained roof packing.');

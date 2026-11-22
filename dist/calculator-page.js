@@ -25,7 +25,7 @@ globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname |
   document.getElementById('planner-jump-view').href = location.pathname + '#panel-canvas';
   document.getElementById('planner-jump-energy').href = location.pathname + '#energy-dialog';
   document.getElementById('planner-device').append(document.querySelector('.compass-mode'), document.getElementById('sensor-status'));
-  document.getElementById('planner-location').append(document.querySelector('.settings-card'));
+  document.getElementById('planner-location').append(document.querySelector('.settings-card'), document.getElementById('location-retry'));
   document.querySelector('.workspace aside').hidden = true;
   document.querySelector('.planner-viewport').append(document.querySelector('.timeline-card'));
   document.querySelector('.timeline-card').prepend(document.getElementById('date-controls'));

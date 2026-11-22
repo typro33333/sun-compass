@@ -21,7 +21,7 @@ $('energy-close').hidden = true;
 let savedProfile = null;
 try { savedProfile = SolarProfile.migrate(localStorage, document); } catch {}
 function saveProfile() {
-  savedProfile = { version: 1, kwp: Number($('energy-kwp').value), loss: Number($('energy-loss').value), tilt: Number($('energy-tilt').value), azimuth: Number($('energy-azimuth').value), lat, lon, offset };
+  savedProfile = { version: 1, kwp: Number($('energy-count').value)*Number($('energy-watts').value)/1000, count:Number($('energy-count').value), watts:Number($('energy-watts').value), loss: Number($('energy-loss').value), tilt: Number($('energy-tilt').value), azimuth: Number($('energy-azimuth').value), lat, lon, offset };
   try {
     SolarProfile.write(savedProfile, localStorage);
     $('profile-status').textContent = 'Đã lưu cấu hình trên trình duyệt này. Lần mở sau tự tải dự báo mới cho hôm nay.';
@@ -45,7 +45,8 @@ async function calculateEnergy() {
     $('energy-status').textContent = 'Cần cấp quyền GPS trước khi dự đoán điện mặt trời.';
     return;
   }
-  const kwp = Number($('energy-kwp').value), loss = Number($('energy-loss').value);
+  const kwp = Number($('energy-count').value)*Number($('energy-watts').value)/1000, loss = Number($('energy-loss').value);
+  if (!Number.isInteger(Number($('energy-count').value)) || Number($('energy-count').value)<1 || Number($('energy-count').value)>30 || !PanelGeometry.moduleFor(Number($('energy-watts').value))) return;
   const tilt = Number($('energy-tilt').value), azimuth = Number($('energy-azimuth').value);
   $('energy-location').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)} · UTC${offset >= 0 ? '+' : ''}${offset}`;
   const day = today();
@@ -98,7 +99,9 @@ let profileLocationKey = '';
 let predictionStarted = false;
 let lastPredictionDay = '';
 if (savedProfile) {
-  for (const key of ['kwp', 'loss', 'tilt', 'azimuth']) $('energy-' + key).value = savedProfile[key];
+  if (savedProfile.watts) $('energy-watts').value=savedProfile.watts;
+  if (savedProfile.count) $('panel-count').value=$('energy-count').value=savedProfile.count;
+  for (const key of ['loss', 'tilt', 'azimuth']) $('energy-' + key).value = savedProfile[key];
   $('profile-status').textContent = 'Đã đọc cấu hình lưu trên trình duyệt. Đang dùng dự báo mới cho hôm nay.';
 
 }

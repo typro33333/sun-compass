@@ -26,7 +26,7 @@ function node(id) {
   return nodes.get(id);
 }
 for (const match of html.matchAll(/id="([^"]+)"[^>]*?(?:value="([^"]*)")?[^>]*>/g)) node(match[1]);
-for (const [id,value] of Object.entries({'energy-kwp':'11','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','house-width':'8','house-length':'10','panel-count':'6','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
+for (const [id,value] of Object.entries({'energy-kwp':'3.6','energy-count':'6','energy-watts':'600','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','house-width':'8','house-length':'10','panel-count':'6','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
 let gpsSuccess,gpsFailure,exportedBlob;
 const context = { document:{ body:node('body'),documentElement:node('html'),cookie:'',hidden:false,createElement:node,createElementNS:(ns,tag)=>node(tag),getElementById:node,querySelector:node,addEventListener(){} },
   localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},sessionStorage:{getItem:()=>null,setItem(){}},location:{protocol:'https:',pathname},
@@ -139,6 +139,14 @@ if (pathname === '/sol-calculartor') {
   assert.equal(node('date-controls').hidden,true);
   assert.equal(node('.sun-times').hidden,true);
   assert.equal(node('.weather-card').hidden,true);
+  node('energy-watts').value='700';node('energy-watts').input();
+  assert.equal(Number(node('energy-kwp').value),Number(node('panel-count').value)*700/1000);
+  assert.match(node('module-description').textContent,/2384 × rộng 1303/);
+  node('energy-count').value='30';node('energy-count').change();
+  assert.equal(Number(node('energy-count').value),Number(node('panel-count').value));
+  assert.equal(Number(node('energy-kwp').value),Number(node('panel-count').value)*700/1000);
+  node('energy-watts').value='600';node('energy-watts').input();
+  node('energy-count').value='6';node('energy-count').change();
   const savedBeforeDraft=storage.get('sol-planner-v1');
   node('panel-arrange').onclick();
   const before=Number(node('panel-count').value);
@@ -147,14 +155,20 @@ if (pathname === '/sol-calculartor') {
   assert.equal(Number(node('panel-count').value),before,'Cancel must preserve committed layout');
   assert.equal(storage.get('sol-planner-v1'),savedBeforeDraft,'Canceled popup edits must not change saved simulation');
   node('panel-arrange').onclick();
-  for(let i=0;i<20;i++)node('layout-add').onclick();
+  for(let i=0;i<40;i++)node('layout-add').onclick();
   node('layout-apply').onclick();
-  assert.equal(Number(node('panel-count').value),12);
+  assert.equal(Number(node('panel-count').value),30);
   assert.equal(node('panel-add').disabled,true);
   node('panel-remove').onclick();
-  for(let i=0;i<20;i++)node('layout-remove').onclick();
+  for(let i=0;i<40;i++)node('layout-remove').onclick();
   node('layout-apply').onclick();
   assert.equal(Number(node('panel-count').value),1);
+  node('panel-arrange').onclick();node('layout-auto').onclick();
+  node('layout-rotate').onclick();node('layout-apply').onclick();
+  assert.equal(JSON.parse(storage.get('sol-planner-v1')).positions[0].rotation,90,'Applied panel rotation persists');
+  node('panel-arrange').onclick();node('layout-rotate').onclick();node('layout-cancel').onclick();
+  assert.equal(JSON.parse(storage.get('sol-planner-v1')).positions[0].rotation,90,'Cancel preserves committed rotation');
+
   assert.equal(node('panel-remove').disabled,true);
   node('planner-setting-group').value='planner-neighbors';node('planner-setting-group').change();
   assert.equal(node('planner-neighbors').hidden,false);
@@ -202,11 +216,11 @@ if (pathname === '/sol-calculartor') {
   imported.positions=[{x:-2,z:0},{x:2,z:0}];
   imported.location={lat:20,lon:105,offset:7};
   imported.view={yaw:2,pitch:.6,zoom:1.5};
-  imported.energy={kwp:25,loss:18,reserve:false};
+  imported.energy={kwp:1.2,loss:18,reserve:false};
   node('planner-import-file').files=[{size:2000,text:async()=>JSON.stringify(exported)}];
   await node('planner-import-file').change();
   assert.equal(Number(node('panel-count').value),2);
-  assert.equal(Number(node('energy-kwp').value),25);
+  assert.equal(Number(node('energy-kwp').value),1.2);
   assert.equal(node('panel-zoom-label').textContent,'150%');
   assert.deepEqual(JSON.parse(storage.get('sol-planner-v1')),imported,'Import must apply and persist the whole profile');
   assert.equal(node('planner-import-file').value,'','Same file can be selected again');

@@ -1,4 +1,9 @@
 const solTranslations = [
+  ['Số lượng tấm pin', 'Panel count'],
+  ['Công suất mỗi tấm (W)', 'Power per panel (W)'],
+  ['Tổng công suất (kWp)', 'Total capacity (kWp)'],
+  ['Bảng kích thước tham chiếu 550–700 W', 'Reference module dimensions: 550–700 W'],
+  ['Thông số hãng', 'Manufacturer datasheet'],
   ['Chiều rộng nhà', 'House width'],
   ['Mỗi tầng cao 3,2 m.', 'Each floor is 3.2 m tall.'],
   ['Cài đặt', 'Settings'],

@@ -364,3 +364,76 @@ header .header-actions .tz-row label{font-size:13px}
  header #header-menu-toggle{font-size:11px;padding:10px}
  header .header-preferences{margin-left:auto}
 }
+
+.panel-explanation{margin:12px 18px;padding:14px 16px;border:1px solid #91a49966;border-radius:12px}.panel-explanation[hidden]{display:none}.panel-explanation summary{cursor:pointer;font-size:14px;font-weight:600}.panel-explanation p{font-size:14px;line-height:1.7;margin:12px 0 0}
+
+.energy-fields select{width:100%;min-height:44px;padding:10px;border:1px solid #91a499;border-radius:8px;background:transparent;color:inherit;font:inherit}.energy-fields input[readonly]{background:#91a49915}#module-description,#roof-capacity{font-size:14px}
+
+.module-catalog{margin:16px 0;font-size:14px;overflow:auto}.module-catalog summary{cursor:pointer}.module-catalog table{width:100%;border-collapse:collapse}.module-catalog th,.module-catalog td{padding:10px;text-align:left;border-bottom:1px solid #91a49955}.module-catalog a{color:inherit}
+
+/* Align select/input baselines even when a field label wraps. */
+.energy-fields>label{display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
+.energy-fields>label>input,.energy-fields>label>select{display:block;width:100%;height:44px;min-height:44px;margin:8px 0 0;padding:10px 12px;line-height:22px;font-size:14px;border:1px solid #dfe5da;border-radius:8px;box-sizing:border-box}
+.energy-fields>label>select{padding-right:32px;background-color:#fafbf8;color:#395243}
+[data-theme=dark] .energy-fields>label>select{background-color:#23363d;color:#e2ede8;border-color:#455b61}
+@media(max-width:600px){.energy-fields>label>input,.energy-fields>label>select{font-size:16px}}
+
+/* Fixed icon boxes: avoid SVG overflow shifting the icon inside padded buttons. */
+.planner-profile-actions .planner-icon-button,.planner-canvas-actions .planner-icon-button,.planner-settings>summary.planner-icon-button,#header-gps{display:flex;align-items:center;justify-content:center;width:44px;height:44px;min-height:44px;padding:0;line-height:1;gap:0}
+.planner-icon-button>svg{display:block;width:22px;height:22px;flex:0 0 22px;margin:0;overflow:visible}
+#energy-open,#energy-preview-open,#theme-toggle,#sensor,#view-2d,#view-3d,#scene-follow,#now,#play,#weather-retry,#scene-reset{display:inline-flex;align-items:center;justify-content:center;gap:8px;line-height:1.4}
+#energy-open::before,#energy-preview-open::before,#theme-toggle::before,#sensor::before,#view-2d::before,#view-3d::before,#scene-follow::before,#now::before,#play::before,#weather-retry::before,#scene-reset::before{display:block;margin:0;align-self:center}
+[data-theme=dark] #theme-toggle::before,#play[data-playing=true]::before{margin:0}
+.compass-card .play-actions button::before{margin:0}
+
+/* Calculator mobile: two compact slider controls and a single-row scene heading. */
+@media(max-width:600px){
+ body.calculator-page #panel-planner>.card-heading{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;padding:12px 14px}
+ body.calculator-page #panel-planner>.card-heading>div:first-child{min-width:0;flex:1}
+ body.calculator-page #panel-planner>.card-heading .eyebrow{display:block;font-size:11px;letter-spacing:.6px;line-height:1.5}
+ body.calculator-page #panel-planner>.card-heading h2{display:none}
+ body.calculator-page .planner-heading-actions{margin:0;gap:0;flex-shrink:0}
+ body.calculator-page .planner-heading-actions>.badge{display:none}
+ body.calculator-page .planner-profile-actions{gap:4px}
+ body.calculator-page .planner-profile-actions .planner-icon-button{width:40px;height:44px;min-height:44px;border-radius:9px}
+ body.calculator-page .planner-profile-actions .planner-icon-button>svg{width:19px;height:19px;flex-basis:19px}
+ body.calculator-page .planner-viewport>.timeline-card{padding:12px;margin:0 10px 12px}
+ body.calculator-page .timeline-card .simulation-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ body.calculator-page .timeline-card .simulation-grid>.annual-timeline{padding:0 0 0 12px;border-top:0;border-left:1px solid #91a49955}
+ body.calculator-page .timeline-card .simulation-grid .timeline-top{display:block;flex:0;min-height:44px}
+ body.calculator-page .timeline-card .simulation-grid .eyebrow{font-size:9px;letter-spacing:.4px;line-height:1.5}
+ body.calculator-page .timeline-card .simulation-grid :is(.play-actions,.metrics,.time-ticks,#phase,.year-display>span){display:none}
+ body.calculator-page .timeline-card .simulation-grid :is(.time-display,.year-display){margin-top:3px;gap:0}
+ body.calculator-page .timeline-card .simulation-grid :is(#selected-time,#year-date){font-size:15px;line-height:1.4;letter-spacing:0}
+ body.calculator-page .timeline-card .simulation-grid .range-wrap{margin:0;padding:12px 0 8px}
+ body.calculator-page .timeline-card .simulation-grid input[type=range]{display:block;min-height:8px;height:8px}
+}
+
+/* Stable mobile header: navigation above, solar times and GPS below. */
+@media(max-width:650px){
+ header{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px 10px;height:auto;min-height:0;padding:10px 14px}
+ header .brand{grid-column:1;grid-row:1;width:auto;margin:0;font-size:27px;gap:7px;line-height:1}
+ header .brand-logo{width:32px;height:32px}
+ header .header-tools{display:contents}
+ header #energy-open{grid-column:2;grid-row:1;justify-self:end;margin:0 92px 0 0;min-height:40px;padding:8px 10px;font-size:12px;line-height:1.4;white-space:nowrap}
+ header #energy-open::before{display:none}
+ header .header-preferences{grid-column:2;grid-row:1;justify-self:end;margin:0}
+ header #header-menu-toggle{height:40px;min-height:40px;padding:8px 10px;font-size:12px;gap:6px}
+ header .header-sun-times{grid-column:1/3;grid-row:2;justify-self:start;gap:18px;margin:0;min-height:36px}
+ header .header-sun-time{gap:6px}
+ header .header-sun-time svg{width:20px;height:20px}
+ header .header-sun-time strong{font-size:13px;line-height:1;font-weight:500}
+ header #header-gps{grid-column:2;grid-row:2;justify-self:end;width:40px;height:36px;min-height:36px;margin:0;padding:0;border-radius:9px}
+ header #header-gps>svg{width:20px;height:20px;flex-basis:20px}
+ header .header-actions{right:0;top:calc(100% + 8px)}
+}
+@media(max-width:380px){
+ header{padding:10px;column-gap:6px}
+ header .brand{font-size:24px;gap:5px}
+ header .brand-logo{width:28px;height:28px}
+ header #energy-open{font-size:10px;padding:8px 6px;margin-right:82px;white-space:normal;text-align:center}
+ header #header-menu-toggle{font-size:11px;padding:8px;gap:4px}
+}
+
+/* GPS is available through location settings, without a header shortcut. */
+header #header-gps[hidden]{display:none}

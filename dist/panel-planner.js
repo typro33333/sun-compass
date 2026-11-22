@@ -2,7 +2,9 @@
   if (!globalThis.isSolarCalculator) return;
   const canvas = $('panel-canvas'), ctx = canvas.getContext('2d'), G = PanelGeometry;
   let yaw = Math.PI-.6, pitch = .55, orbitKey = '', orbit = [], follow = false, previousHouse = 0, zoom = 1;
-  const controls = { width:$('house-width'), length:$('house-length'), count:$('panel-count'), roof:$('roof-type'), bearing:$('panel-bearing'), tilt:$('panel-slope'), floors:$('panel-floors'), x:$('panel-x'), z:$('panel-z'), house:$('house-bearing'), left:$('neighbor-left'), right:$('neighbor-right'), leftRoof:$('neighbor-left-roof'), rightRoof:$('neighbor-right-roof') };
+  const controls = { watts:$('energy-watts'), width:$('house-width'), length:$('house-length'), count:$('panel-count'), roof:$('roof-type'), bearing:$('panel-bearing'), tilt:$('panel-slope'), floors:$('panel-floors'), x:$('panel-x'), z:$('panel-z'), house:$('house-bearing'), left:$('neighbor-left'), right:$('neighbor-right'), leftRoof:$('neighbor-left-roof'), rightRoof:$('neighbor-right-roof') };
+  $('module-catalog-body').innerHTML=G.moduleCatalog.map(m=>`<tr><td>${m.min}–${m.max} W</td><td>${Math.round(m.length*1000)} × ${Math.round(m.width*1000)} mm</td><td><a href="${m.source}" target="_blank" rel="noreferrer">${m.model}</a></td></tr>`).join('');
+  let capacityKey='',capacity=0;
   let placedPanels=null, initialized=false, lastSaved='', recommendationKey='';
   let savedState=null;
   try {savedState=PlannerState.load(localStorage);} catch {}
@@ -34,9 +36,8 @@
   }
   function getPositions(count,automatic=false) {
     const c=configuration();
-    if(!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width))return placedPanels;
-    const layout=G.panelLayout(count,c.bearing-c.house,0,0,0,0,c.length,c.width);
-    return layout.panels.map(p=>({x:(p[0][0]+p[2][0])/2,z:(p[0][2]+p[2][2])/2}));
+    if(!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,G.moduleFor(c.watts)))return placedPanels;
+    return G.packPanels(count,c.bearing-c.house,c.length,c.width,G.moduleFor(c.watts));
   }
   const openLayout=createPanelLayoutEditor({getConfiguration:configuration,getPositions,apply:positions=>{
     placedPanels=positions.map(p=>({...p}));controls.count.value=positions.length;
@@ -56,12 +57,36 @@
   function configuration() {
     return Object.fromEntries(Object.entries(controls).map(([k,node])=>[k,Number(node.value)]));
   }
+  function normalizePanels() {
+    const c=configuration(),module=G.moduleFor(c.watts);
+    if(!module)return;
+    if(!placedPanels || placedPanels.length!==c.count || !G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,module)) {
+      placedPanels=G.packPanels(c.count,c.bearing-c.house,c.length,c.width,module);
+      controls.count.value=placedPanels.length;controls.x.value=controls.z.value=0;
+    }
+    const count=placedPanels.length,kwp=count*c.watts/1000;
+    const nextCapacityKey=JSON.stringify([c.width,c.length,c.bearing-c.house,c.watts]);
+    if(nextCapacityKey!==capacityKey){capacityKey=nextCapacityKey;capacity=G.packPanels(30,c.bearing-c.house,c.length,c.width,module).length;}
+    $('energy-count').max=controls.count.max=Math.max(capacity,count);
+    if(initialized && Math.abs(Number($('energy-kwp').value)-kwp)>1e-9)globalThis.invalidateSolarPrediction?.();
+    $('energy-count').value=count;$('energy-kwp').value=kwp.toFixed(3);
+    $('module-description').textContent=`${count} tấm × ${c.watts} W = ${kwp.toFixed(3)} kWp · Dài ${Math.round(module.length*1000)} × rộng ${Math.round(module.width*1000)} mm · ${module.model}`;
+    $('module-source').href=module.source;
+    $('roof-capacity').textContent=`Đã đặt ${count} tấm · Bố trí tự động tìm được chỗ cho ${capacity} tấm trên mái ${c.width} × ${c.length} m. Có thể sắp xếp thủ công; chỉ nhận vị trí không chồng lấn, không vượt mái, tối đa 30 tấm.`;
+    if(count<c.count)$('panel-advice').textContent=`Kích thước mái/hướng hiện tại chỉ xếp được ${count}/${c.count} tấm theo bố trí tự động. Đã cập nhật số lượng và công suất.`;
+  }
+  $('energy-count').addEventListener('change',()=>{
+    const n=Number($('energy-count').value);
+    if(!Number.isInteger(n)||n<1||n>30){$('energy-count').value=controls.count.value;return;}
+    controls.count.value=n;normalizePanels();labels();render();globalThis.invalidateSolarPrediction?.();
+  });
   function labels() {
+    normalizePanels();
     const c = configuration();
     $('house-width-label').textContent=`${c.width} m`;
     $('house-length-label').textContent=`${c.length} m`;
     $('panel-count-label').textContent=`${c.count} tấm`;
-    $('panel-add').disabled=c.count>=12;
+    $('panel-add').disabled=c.count>=30;
     $('panel-remove').disabled=c.count<=1;
     $('floor-label').textContent = c.floors ? `${c.floors} lầu + tầng trệt` : 'Chỉ tầng trệt';
     $('floor-add').disabled = c.floors >= 3;
@@ -87,6 +112,7 @@
       $('energy-azimuth').value=controls.bearing.value;
       globalThis.invalidateSolarPrediction?.();
     }
+    if (key==='watts') globalThis.invalidateSolarPrediction?.();
     if (key==='bearing' || key==='tilt') {
       $(key==='bearing' ? 'energy-azimuth' : 'energy-tilt').value = node.value;
       globalThis.invalidateSolarPrediction?.();
@@ -94,8 +120,8 @@
       $('energy-status').textContent = 'Thông số tấm pin đã đổi. Bấm tính để cập nhật sản lượng.';
       $('energy-preview').hidden = true;
     }
-    if(['count','bearing','length','width'].includes(key) && placedPanels) {
-      if(placedPanels.length!==Number(controls.count.value) || !G.validPlacement(placedPanels,configuration().bearing-configuration().house,configuration().length,configuration().width)) {placedPanels=null;$('panel-advice').textContent='Đã xếp lại pin để phù hợp kích thước hoặc hướng mới. Mở Sắp xếp từng tấm pin để chỉnh.';}
+    if(['count','bearing','length','width','watts'].includes(key) && placedPanels) {
+      if(placedPanels.length!==Number(controls.count.value) || !G.validPlacement(placedPanels,configuration().bearing-configuration().house,configuration().length,configuration().width,G.moduleFor(configuration().watts))) {placedPanels=null;$('panel-advice').textContent='Đã xếp lại pin để phù hợp kích thước hoặc hướng mới. Mở Sắp xếp từng tấm pin để chỉnh.';}
     }
     labels();render();
   });
@@ -146,6 +172,10 @@
       $('energy-status').textContent='Đã áp dụng gợi ý theo mô phỏng. Bấm tính để cập nhật sản lượng.';
       const gain=best.baseline>0?`Chỉ số đón nắng hình học tăng khoảng ${Math.max(0,(best.score/best.baseline-1)*100).toFixed(1)}% so với cấu hình trước. `:'';
       $('panel-advice').textContent=`Đã áp dụng gợi ý ${annual?'năm '+year:'ngày '+$('date').value}: hướng ${best.bearing}° từ Bắc, nghiêng ${best.tilt}°. ${layout?'Đã tự xếp từng tấm trên mái, so sánh bố trí gom cụm và rời rạc để tránh bóng che; áp dụng phương án tốt nhất tìm được.':'Giữ vị trí từng tấm;'} đã xét hướng nhà và bóng che nhà bên, gồm mái Thái. ${gain}${annual?'Lấy mẫu 12 ngày giữa tháng, gia quyền theo số ngày từng tháng; ':''}Bước thời gian 30 phút, tìm góc thô rồi tinh chỉnh 5°, kiểm tra 36 ô/tấm. Đây là ước tính hình học, chưa xét thời tiết hoặc bóng che giữa các tấm; không phải mức tăng kWh.`;
+      const why=best.explanation;
+      const improvement=best.baseline>0?`${Math.max(0,(best.score/best.baseline-1)*100).toFixed(1)}%`:'từ mức không đón được nắng trực tiếp';
+      $('panel-explanation-text').textContent=`Với mái ${c.width} × ${c.length} m và ${c.count} tấm, phương án chọn hướng ${best.bearing}° và nghiêng ${best.tilt}° vì đạt chỉ số đón nắng tốt nhất trong các phương án đã thử ${annual?'qua 12 ngày đại diện cho các tháng trong năm':'trong ngày đang chọn'}. ${why.moved?`Đã chuyển ${why.moved} tấm để sử dụng các vùng mái thuận lợi hơn.`:'Giữ vị trí các tấm vì chưa tìm thấy cách dịch chuyển tốt hơn.'} ${why.neighbors?`Phần đón nắng bị nhà bên che (có gia quyền theo góc nắng) thay đổi từ ${(why.beforeShade*100).toFixed(1)}% thành ${(why.afterShade*100).toFixed(1)}%.`:'Mô hình hiện tại không có nhà bên gây bóng che; lựa chọn chủ yếu dựa vào hướng và độ nghiêng.'} ${best.score>best.baseline+1e-9?`Chỉ số đón nắng tăng ${improvement}.`:'Chưa tìm được phương án có chỉ số cao hơn cấu hình hiện tại.'} Các tấm được giữ trong mép mái và không chồng nhau. Đây là so sánh hình học, không phải mức tăng điện năng; chưa tính thời tiết, bóng giữa các tấm và lối đi bảo trì.`;
+      $('panel-explanation').hidden=false;$('panel-explanation').open=true;
       recommendationKey=simulationKey();
       labels();render();
     } catch {
@@ -179,6 +209,7 @@
     playing=setInterval(()=>{const b=bounds();minute=Math.min(b.end,minute+3);draw();if(minute>=b.end)stop();},100);
   };
   globalThis.onSolarDayChanged = () => {
+    $('panel-explanation').hidden=true;
     stop();
     const {start,end}=bounds();
     if (!yearAdvancing) minute=Math.max(start,Math.min(end,minute));
@@ -188,9 +219,11 @@
     $('panel-advice').textContent='Gợi ý áp dụng cho ngày và vị trí đang chọn. Bấm gợi ý để tính lại.';
   };
   function render() {
+    normalizePanels();
     saveState();
     if(recommendationKey && recommendationKey!==simulationKey()) {
       recommendationKey='';
+      $('panel-explanation').hidden=true;
       $('panel-advice').textContent='Mô phỏng đã thay đổi. Bấm gợi ý để tính lại theo cấu hình mới.';
     }
     if (!ctx) return;
@@ -221,7 +254,7 @@
     const rotate=p=>G.rotate(p,c.house);
     const mountingHeight=buildingHeight+(c.roof ? 3 : 0);
     const positions=getPositions(c.count);
-    const localModules=G.individualPanels(positions,c.bearing-c.house,c.tilt,mountingHeight);
+    const localModules=G.individualPanels(positions,c.bearing-c.house,c.tilt,mountingHeight,G.moduleFor(c.watts));
     const points=localModules.flat();
     const minX=Math.min(...points.map(p=>p[0])),maxX=Math.max(...points.map(p=>p[0]));
     const minZ=Math.min(...points.map(p=>p[2])),maxZ=Math.max(...points.map(p=>p[2]));
@@ -364,13 +397,14 @@
   new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   globalThis.renderPanelPlanner=render;
   function applyProfile(state) {
+    controls.watts.value=state.config.watts || 600;
     for(const [name,value] of Object.entries(state.config))controls[name].value=value;
     placedPanels=state.positions;
     previousHouse=Number(controls.house.value);
     $('energy-azimuth').value=controls.bearing.value;
     $('energy-tilt').value=controls.tilt.value;
     if(state.energy) {
-      $('energy-kwp').value=state.energy.kwp;$('energy-loss').value=state.energy.loss;
+      $('energy-loss').value=state.energy.loss;
       $('energy-reserve').checked=state.energy.reserve;
     }
     if(state.view)({yaw,pitch,zoom}=state.view);
@@ -422,5 +456,5 @@
     } catch(error) {status.textContent='Không khôi phục được profile. '+error.message;}
     finally {input.value='';$('planner-import').disabled=input.disabled=false;}
   });
-  syncFromForm();initialized=true;labels();setZoom(zoom);
+  normalizePanels();syncFromForm();initialized=true;labels();setZoom(zoom);
 })();
