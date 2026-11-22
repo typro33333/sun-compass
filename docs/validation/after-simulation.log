@@ -1,0 +1,7 @@
+PASS scene exposes finite panel descriptors and unit normals
+PASS no neighbors, analytic unblocked rays, no obstacle shade
+PASS taller neighbor creates time-dependent shadow and moving one panel changes only it
+PASS rotating house and sun rotates vertices and shadow identically
+PASS renderer cells and forecast samples match at same timestamps; step energy balance and caps
+PASS independent ray-triangle oracle matches rendered roof/wall occlusion
+{"checks":6,"failures":0,"maxShadeDifferencePercentagePoints":0}

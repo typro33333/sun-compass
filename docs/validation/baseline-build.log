@@ -1,0 +1,6 @@
+$ bun run build && bun tests/build.test.cjs && bun tests/performance.test.mjs
+$ bun scripts/build.mjs
+{"level":"info","event":"build_completed","server":"build/server.js","browser_bundle":"build/dist/app.44d4dbf08309.js","source_maps":false}
+Production bundle checks passed: startup, simulation reload, canceled drafts, scene recommendations, stale-result rejection and time slider.
+Performance checks passed: HTML does not wait for Redis; Brotli/Gzip round-trip, q=0 handling, immutable hashes and no remote font.
+Source serving checks passed: cached Gzip for HTML/CSS/JS, HEAD and uncompressed fallback.

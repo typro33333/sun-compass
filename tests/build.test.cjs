@@ -20,7 +20,7 @@ const context2d = new Proxy({createLinearGradient:()=>({addColorStop(){}}),creat
 function node(id) {
   if (!nodes.has(id)) nodes.set(id, { nodeType:1,tagName:'DIV',childNodes:[],dataset:{},style:{},value:'',textContent:'',innerHTML:'',attrs:{},checked:true,
     setPointerCapture(){},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k];},hasAttribute(k){return k in this.attrs;},
-    addEventListener(k,fn){this[k]=fn;},checkValidity:()=>true,reportValidity:()=>true,getContext:()=>['panel-canvas','canvas'].includes(id)?context2d:null,clientWidth:700,clientHeight:470,
+    addEventListener(k,fn){const previous=this[k];this[k]=(...args)=>{previous?.(...args);return fn(...args);};},checkValidity:()=>true,reportValidity:()=>true,getContext:()=>['panel-canvas','canvas'].includes(id)?context2d:null,clientWidth:700,clientHeight:470,
     querySelector:selector=>node(selector.replace(/^#/,'')),focus(){},click(){if(!this.disabled)this.onclick?.();},append(){},remove(){},after(){},replaceWith(){},prepend(){},insertBefore(){},contains:()=>false,classList:{add(){},remove(){},toggle:()=>false},showModal(){this.open=true;},close(){this.open=false;},
   });
   return nodes.get(id);
@@ -183,14 +183,32 @@ if (pathname === '/sol-calculartor') {
   node('planner-settings').open=true;
   node('planner-settings').keydown({key:'Escape'});
   assert.equal(node('planner-settings').open,false);
+  node('energy-form').checkValidity=()=>false;
+  node('energy-tilt').value='35';node('energy-tilt').input();
+  assert.equal(Number(node('panel-slope').value),35,'Unrelated invalid fields cannot desynchronize geometry');
+  node('energy-form').checkValidity=()=>true;
+  for(const id of ['inverter-ac','inverter-pv','inverter-efficiency','mppt-count','mppt-min','mppt-max','mppt-current','mppt-operating','loss-temperature','loss-wiring','loss-soiling','loss-other']) {
+    node('energy-result').hidden=false;
+    node('energy-form').input({target:node(id)});
+    assert.equal(node('energy-result').hidden,true,`${id} must stale forecast`);
+  }
   node('roof-type').value='1';node('roof-type').input();
   assert.equal(Number(node('energy-tilt').value),35,'Roof style must preserve panel inclination');
-  await node('panel-optimize-year').onclick();
+  node('panel-optimize-year').onclick();
+  assert.equal(node('panel-suggestion-dialog').open,true);
+  const beforeSuggestion=storage.get('sol-planner-v1');
+  await node('panel-suggestion-auto').onclick();
+  assert.equal(storage.get('sol-planner-v1'),beforeSuggestion,'Search must not apply before confirmation');
+  assert.equal(node('placement-preview').open,true);
+  node('placement-confirm').onclick();
   assert.match(node('panel-advice').textContent,/năm 2026/);
   assert.equal(Number(node('panel-slope').value),Number(node('energy-tilt').value));
-  await node('panel-optimize').onclick();
+  node('panel-optimize').onclick();
+  await node('panel-suggestion-auto').onclick();
+  node('placement-confirm').onclick();
   assert.equal(Number(node('panel-bearing').value),Number(node('energy-azimuth').value));
-  const pendingSuggestion=node('panel-optimize').onclick();
+  node('panel-optimize').onclick();
+  const pendingSuggestion=node('panel-suggestion-auto').onclick();
   node('panel-bearing').value='123';node('panel-bearing').input();
   await pendingSuggestion;
   assert.equal(Number(node('panel-bearing').value),123,'Stale recommendation must not override newer edits');
@@ -228,6 +246,33 @@ if (pathname === '/sol-calculartor') {
   assert.deepEqual(JSON.parse(storage.get('sol-planner-v1')),imported,'Import must apply and persist the whole profile');
   assert.equal(node('planner-import-file').value,'','Same file can be selected again');
   assert.equal(node('planner-import').disabled,false);
+  node('panel-optimize').onclick();
+  node('panel-suggestion-cancel').onclick();
+  assert.equal(node('panel-suggestion-dialog').open,false);
+  node('panel-optimize').onclick();
+  const beforeRows=storage.get('sol-planner-v1');
+  node('panel-suggestion-rows').onclick();
+  assert.equal(storage.get('sol-planner-v1'),beforeRows);
+  node('placement-confirm').onclick();
+  const rowsState=JSON.parse(storage.get('sol-planner-v1'));
+  assert.equal(rowsState.config.bearing,rowsState.config.house,'Rows align to roof');
+  assert.equal(rowsState.positions.length,2,'Row layout keeps all panels');
+  assert.match(node('panel-explanation-text').textContent,/MPPT 1: 1 tấm; MPPT 2: 1 tấm/);
+  assert.equal(node('panel-suggestion-dialog').open,false);
+  node('placement-poa').value='1600';node('placement-gap').value='0.02';
+  const beforeAnnual=storage.get('sol-planner-v1');
+  await node('panel-suggestion-annual').onclick();
+  assert.equal(storage.get('sol-planner-v1'),beforeAnnual,'Annual search leaves current layout unchanged');
+  assert.match(node('placement-preview-status').textContent,/kWh\/năm/);
+  assert.match(node('placement-ranking').innerHTML,/DC kWh\/năm/);
+  node('placement-cancel').onclick();
+  assert.equal(storage.get('sol-planner-v1'),beforeAnnual,'Cancel retains layout');
+  node('panel-optimize').onclick();node('panel-suggestion-rows').onclick();
+  node('loss-other').value='2';
+  node('placement-confirm').onclick();
+  assert.match(node('placement-preview-status').textContent,/thay đổi/);
+  assert.equal(storage.get('sol-planner-v1'),beforeAnnual,'Stale proposal cannot apply');
+  node('loss-other').value='0';node('placement-cancel').onclick();
   gpsSuccess({coords:{latitude:1,longitude:2}});
   assert.equal(Number(node('lat').value),20,'Late startup GPS must not overwrite imported location');
 

@@ -321,3 +321,9 @@ Hybrid cho nhập AC định mức, PV DC tối đa, hiệu suất, số MPPT, c
 Giới hạn: nhiệt độ là tỷ lệ cố định do người dùng nhập, chưa có mô hình nhiệt tế bào; MPPT chưa mô tả đấu chuỗi, Voc/Isc hay kiểm tra thiết kế điện. AC từng tấm là phân bổ theo DC được nhận, không phải đo độc lập. Chưa mô phỏng bóng giữa các tấm, che khuất bầu trời khuếch tán, diode bypass/mismatch, pin lưu trữ hoặc giới hạn phát lên lưới. Không dùng kết quả thay hồ sơ thiết kế thi công.
 
 Kiểm tra tự động: `bun run test` (bóng che riêng từng tấm, bất biến khi xoay nhà, bảo toàn năng lượng, không giảm thời tiết hai lần, clipping theo giờ, MPPT, thiếu DNI, khoảng giờ lẻ, ban đêm, luồng UI bằng mock, phản hồi cũ, persistence và proxy); `bun run test:build` (bundle sản xuất trong DOM/canvas giả lập và ngân sách hiệu năng). Chưa kiểm tra giao diện bằng trình duyệt thật, API thời tiết trực tiếp hoặc đối chiếu sản lượng đo ngoài thực tế.
+
+### Validation engine và prototype bố trí năm
+
+Báo cáo kiến trúc, lỗi tái hiện, contract geometry, kết quả test trước/sau và giới hạn: [docs/validation/AUDIT.md](docs/validation/AUDIT.md). Chạy regression CI bằng `bun run test:ci`.
+
+Trong Gợi ý có prototype so sánh bố trí theo kWh/năm với bức xạ năm giả định do người dùng nhập. Kết quả có preview và xác nhận trước khi áp dụng; không phải dự báo khí hậu năm từ Open-Meteo. Các gợi ý hiện hữu cũng cần xác nhận ở màn hình so sánh.

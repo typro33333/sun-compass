@@ -13,7 +13,9 @@ const wait=()=>new Promise(r=>setTimeout(r,5));
 (async()=>{
  assert.equal($('energy-reserve').checked,false);
  ctx.applyEnergySystem({losses:{temperature:0,wiring:0,soiling:0,other:0},inverter:{acKw:1,maxPvKw:2,efficiency:100,mpptCount:1,mpptMinV:100,mpptMaxV:500,mpptMaxA:30,operatingV:300}});
+ $('energy-tilt').value=30; // Deliberately divergent legacy form draft.
  $('energy-form').submit({preventDefault(){}});await wait();
+ assert.equal(lastQuery.get('tilt'),'0','Weather orientation must match shared scene');
  assert.equal(calls,1);assert(lastQuery.get('hourly').includes('direct_normal_irradiance'));
  assert.equal($('energy-result').hidden,false);assert.match($('energy-kwh').textContent,/2[,.]9/);
  assert.match($('energy-hourly').innerHTML,/MPPT/);assert.match($('energy-formula').textContent,/clipping AC/);
@@ -28,6 +30,19 @@ const wait=()=>new Promise(r=>setTimeout(r,5));
  release={};$('energy-form').submit({preventDefault(){}});await wait();
  ctx.invalidateSolarPrediction();assert.equal($('energy-preview').hidden,true);release.resolve();release=null;await wait();
  assert.equal($('energy-result').hidden,true,'Canceled forecast cannot publish stale scene output');
+ // New configuration finishes before an older request resolves.
+ $('energy-reserve').checked=false;
+ release={};$('energy-form').submit({preventDefault(){}});await wait();
+ const oldResolve=release.resolve;release=null;
+ ctx.invalidateSolarPrediction();$('inverter-efficiency').value=50;
+ $('energy-form').submit({preventDefault(){}});await wait();
+ const newest=$('energy-kwh').textContent;
+ assert.match(newest,/1[,.]4/);oldResolve();await wait();
+ assert.equal($('energy-kwh').textContent,newest);
+ // Geometry changed programmatically, without an input event.
+ release={};$('energy-form').submit({preventDefault(){}});await wait();
+ config.right=5;release.resolve();release=null;await wait();
+ assert.equal($('energy-result').hidden,true,'Snapshot guard must reject silently changed geometry');
  $('mppt-max').value=50;$('energy-form').submit({preventDefault(){}});await wait();
  assert.match($('energy-status').textContent,/MPPT/);
  console.log('Energy UI flow passed: default reserve, DNI request, rendered hourly detail, optional reserve, invalid settings and stale-result rejection.');

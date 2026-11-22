@@ -183,3 +183,10 @@ for(const watts of [549,701,601,NaN,Infinity])assert.equal(G.moduleFor(watts),nu
 const six=G.packPanels(30,180,8,3,G.moduleFor(600));
 assert.equal(six.length,6,'3 × 8 m roof fits six portrait 600 W modules in regular layout');
 console.log('Module catalog checks passed: 31 power bins, exact dimensions and constrained roof packing.');
+
+for(const watts of [550,600,700])for(const bearing of [0,32,45,90,122,173,295])for(const count of (watts===700?[18]:[18,20])) {
+ const module=G.moduleFor(watts),positions=G.packPanels(count,bearing,20,6,module);
+ assert.equal(positions.length,count,`6 × 20 m roof must fit ${count} modules at ${bearing}°, ${watts} W`);
+ assert(G.validPlacement(positions,bearing,20,6,module),'Full-size panels must stay within roof without overlap');
+}
+console.log('6 × 20 m roof packing: 18 panels at 550/600/700 W, 20 panels at 550/600 W across rotations passed.');

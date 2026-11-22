@@ -1,0 +1,6 @@
+FAIL scene exposes finite panel descriptors and unit normals undefined is not an object (evaluating 'scene.panels.forEach')
+PASS no neighbors, analytic unblocked rays, no obstacle shade
+PASS taller neighbor creates time-dependent shadow and moving one panel changes only it
+PASS rotating house and sun rotates vertices and shadow identically
+FAIL renderer cells and forecast samples match at same timestamps; step energy balance and caps G.renderCells is not a function. (In 'G.renderCells(scene, sun, grid)', 'G.renderCells' is undefined)
+{"checks":3,"failures":2,"maxShadeDifferencePercentagePoints":0}

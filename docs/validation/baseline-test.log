@@ -1,0 +1,44 @@
+$ bun tests/solar.test.cjs && bun tests/weather.test.cjs && bun tests/energy.test.cjs && bun tests/energy-system.test.cjs && bun tests/energy-flow.test.cjs && bun tests/profile.test.cjs && bun tests/sensor.test.cjs && bun tests/forecast-proxy.test.mjs && bun tests/forecast-client.test.cjs && bun tests/redis-forecast.test.mjs && bun tests/visitor-log.test.mjs && bun tests/logging.test.mjs && bun tests/static.test.mjs && bun tests/scene.test.cjs && bun tests/panel-geometry.test.cjs && bun tests/depth-renderer.test.cjs && bun tests/planner-state.test.cjs
+Solar checks passed: equinox, polar day/night, UTC offset.
+Seasonal direction and daylight checks passed.
+NOAA: 45 days/sites, 225 positions; max angle 0.000000°, max event 0.164 min.
+Weather checks passed: live payload, rain rendering, simulated date, network failure.
+Energy checks passed: 11 kWp conversion, day boundaries, fractional offsets, missing data, zero irradiance.
+Reserve checks passed: cap, clear weather, missing data, no penalty for nighttime rain.
+Energy malformed-interval checks passed.
+PASS weather reserve off by default
+PASS shared geometry and per-panel sampled area
+PASS no second weather loss; DC and AC agree at unity efficiency
+PASS partial shade affects direct only, preserves diffuse, is per panel/hour
+PASS loss categories applied once, inverter once, energy budget reconciles
+PASS AC clipping each hour, not daily average
+PASS MPPT current and voltage windows enforced
+PASS PV admission limit and invalid efficiencies rejected
+PASS missing DNI fails explicitly; fractional interval integrates correctly
+PASS night has no direct yield; diffuse zero stays zero
+PASS render masks agree with forecast per panel at four local times
+Energy UI flow passed: default reserve, DNI request, rendered hourly detail, optional reserve, invalid settings and stale-result rejection.
+Profile checks passed: localStorage round-trip, validation, cookie migration, precedence and blocked storage.
+Sensor checks passed: absolute permission, iOS/Android headings, landscape, relative rejection, cleanup, HTTP warning.
+Proxy checks passed: 100 concurrent requests → 1 upstream call, grid reuse, TTL, stale fallback, 429 cooldown, budgets, validation.
+Retry checks passed: bounded backoff, rounded keys, types, day rollover, Retry-After and permanent errors.
+Client cache checks passed: request sharing, independent cancellation, cache reuse.
+Redis safety and 2 km grid checks passed.
+Visitor log checks passed: new/returning browsers, cross-instance deduplication mock, cookie flags, invalid cookie and Redis failure.
+JSON logging checks passed: schemas, request correlation, privacy, HEAD/405/404/500 and cache status.
+Static app checks passed: unique IDs, asset routes, DOM references and startup order.
+3D compass checks passed: heading alignment, manual override, follow resume and sensor-off state.
+Panel geometry checks passed: incidence, normals, roof clearance, shadow direction, winter recommendation and polar night.
+House geometry checks passed: clockwise rotation, inverse transform and neighbor shading.
+Annual recommendation checks passed: leap years and both hemispheres.
+Roof supports checks passed: flat/sloped contact and rotated houses.
+Variable house length, individual panels, roof bounds and neighbor shadow checks passed.
+Individual placement and Thai neighbor roof shading checks passed.
+Scene recommendation checks passed: neighbor shading, roof shape, improvement and layout constraints.
+Annual layout checks passed: roof bounds, panel count, nondecreasing exposure and immutable input.
+Variable width and independent panel placement checks passed.
+Module catalog checks passed: 31 power bins, exact dimensions and constrained roof packing.
+6 × 20 m roof packing: 18 panels at 550/600/700 W, 20 panels at 550/600 W across rotations passed.
+Depth rendering checks passed: 120 camera views, order independence and real occlusion.
+Planner persistence checks passed: complete round-trip, per-client isolation, invalid data and blocked storage.
+Profile backup checks passed: complete export/import, invalid files, unsupported versions and optional coordinates.

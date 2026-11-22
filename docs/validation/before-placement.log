@@ -1,0 +1,3 @@
+error: Cannot find module '../dist/annual-placement.js' from '/Users/thinhth1/Desktop/vibe-code/laban-sun/sun-compass/tests/annual-placement.test.cjs'
+
+Bun v1.3.14 (macOS arm64)

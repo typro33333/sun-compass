@@ -104,7 +104,7 @@
     $('panel-slope-label').textContent = `${c.tilt}°`;
   }
   function syncFromForm() {
-    if (!$('energy-form').checkValidity()) return;
+    if (!['energy-azimuth','energy-tilt'].every(id=>$(id).value!=='' && $(id).checkValidity())) return;
     controls.bearing.value = $('energy-azimuth').value;
     controls.tilt.value = $('energy-tilt').value;
     labels(); render();
@@ -143,6 +143,55 @@
   function manual() {follow=false;$('panel-follow').setAttribute('aria-pressed','false');}
   $('panel-follow').onclick=()=>{follow=true;$('panel-follow').setAttribute('aria-pressed','true');if(!globalThis.compassState?.active)$('sensor').click();render();};
   $('floor-add').onclick = () => { controls.floors.value = Math.min(3,Number(controls.floors.value)+1); labels();render(); };
+  let pendingPlacement=null,placementRun=0;
+  const previewDialog=$('placement-preview');
+  const placementKey=()=>simulationKey()+JSON.stringify(['inverter-ac','inverter-pv','inverter-efficiency','mppt-count','mppt-min','mppt-max','mppt-current','mppt-operating','loss-temperature','loss-wiring','loss-soiling','loss-other','placement-poa','placement-gap'].map(id=>$(id).value));
+  function planSvg(c,positions) {
+    const polygons=G.individualPanels(positions.map(p=>({...p,x:p.x+c.x,z:p.z-c.z})),c.bearing-c.house,0,0,G.moduleFor(c.watts));
+    return `<svg viewBox="${-c.width/2-.3} ${-c.length/2-.3} ${c.width+.6} ${c.length+.6}" role="img" aria-label="Bố trí trên mái"><rect x="${-c.width/2}" y="${-c.length/2}" width="${c.width}" height="${c.length}" fill="#dde8df"/>${polygons.map((p,i)=>`<polygon points="${p.map(v=>v[0]+','+v[2]).join(' ')}" fill="#235878" stroke="#99c9d2" stroke-width=".03"/><text x="${positions[i].x+c.x}" y="${positions[i].z-c.z}" text-anchor="middle" fill="white" font-size=".28">${i+1}</text>`).join('')}</svg>`;
+  }
+  function previewPlacement(c,positions,message,apply) {
+    pendingPlacement={key:placementKey(),apply};
+    $('placement-manual').innerHTML=planSvg(configuration(),getPositions(configuration().count));
+    $('placement-proposed').innerHTML=planSvg(c,positions);
+    $('placement-comparison').hidden=false;
+    $('placement-preview-status').textContent=message;
+    $('placement-confirm').disabled=false;
+    if(!previewDialog.open)previewDialog.showModal();
+  }
+  function cancelPlacement(){placementRun++;pendingPlacement=null;previewDialog.close();}
+  $('placement-cancel').onclick=cancelPlacement;
+  previewDialog.addEventListener('cancel',()=>{placementRun++;pendingPlacement=null;});
+  $('placement-confirm').onclick=()=>{
+    if(!pendingPlacement)return;
+    if(pendingPlacement.key!==placementKey()){$('placement-preview-status').textContent='Cấu hình đã thay đổi. Hãy tạo đề xuất mới.';$('placement-confirm').disabled=true;pendingPlacement=null;return;}
+    const apply=pendingPlacement.apply;pendingPlacement=null;previewDialog.close();apply();
+  };
+  $('panel-suggestion-annual').onclick=async()=>{
+    const run=++placementRun,key=placementKey(),c=configuration(),positions=getPositions(c.count).map(p=>({...p}));
+    $('panel-suggestion-dialog').close();pendingPlacement=null;
+    $('placement-confirm').disabled=true;$('placement-comparison').hidden=true;
+    $('placement-ranking').innerHTML='';$('placement-preview-status').textContent='Đang đánh giá kịch bản bức xạ năm…';previewDialog.showModal();
+    try {
+      if(!locationReady)throw Error('Cần vị trí trước khi đánh giá năm.');
+      const annualPoa=Number($('placement-poa').value),spacing=Number($('placement-gap').value),year=Number($('date').value.slice(0,4));
+      const climate=AnnualPlacement.scenario({year,location:{lat,lon,offset},config:c,annualPoa});
+      const iterator=AnnualPlacement.propose({config:c,positions,system:globalThis.readEnergySystem(),scenario:climate,spacing,step:1});
+      let next;
+      do {
+        next=iterator.next();
+        if(!next.done){$('placement-preview-status').textContent=`Đang xếp hạng ${next.value.completed}/${next.value.total} vị trí…`;await new Promise(resolve=>setTimeout(resolve,0));}
+        if(run!==placementRun)return;
+        if(key!==placementKey())throw Error('Cấu hình đã thay đổi. Hãy tạo đề xuất mới.');
+      }while(!next.done);
+      const result=next.value,fmt=v=>v.toFixed(1);
+      previewPlacement(result.config,result.positions,`Kịch bản ${year}: ${annualPoa} kWh/m²/năm trên mặt pin, không phải dự báo thời tiết năm. Hiện tại: AC ${fmt(result.manual.acKwh)} kWh/năm, tổn thất bóng che ${fmt(result.manual.shadeLossKwh)} kWh DC. Đề xuất: AC ${fmt(result.proposed.acKwh)} kWh/năm, tổn thất bóng che ${fmt(result.proposed.shadeLossKwh)} kWh DC. Chênh lệch AC ${fmt(result.proposed.acKwh-result.manual.acKwh)} kWh/năm. Khoảng cách tối thiểu ${spacing} m. Giữ hướng/nghiêng hiện tại; 12 ngày đại diện, lưới ứng viên 1 m.`,()=>{
+        placedPanels=result.positions.map(p=>({...p}));controls.x.value=controls.z.value=0;manual();labels();render();globalThis.invalidateSolarPrediction?.();
+        $('panel-advice').textContent='Đã áp dụng bố trí từ kịch bản năm sau khi xác nhận. Bấm tính để cập nhật dự báo hôm nay.';
+      });
+      $('placement-ranking').innerHTML=`<summary>Xếp hạng vị trí (10 vị trí đầu / ${result.ranking.length})</summary><p>kWh DC/năm của một tấm trước MPPT/inverter. % là năng lượng mất do bóng che / DC ban đầu, không phải diện tích che tức thời.</p><table><thead><tr><th>Vị trí x, z (m)</th><th>DC kWh/năm</th><th>Mất do che</th></tr></thead><tbody>${result.ranking.slice(0,10).map(r=>`<tr><td>${r.position.x.toFixed(1)}, ${r.position.z.toFixed(1)} · ${r.position.rotation||0}°</td><td>${fmt(r.dcKwh)}</td><td>${fmt(r.shadeFraction*100)}%</td></tr>`).join('')}</tbody></table>`;
+    }catch(error){if(run===placementRun)$('placement-preview-status').textContent=error.message;}
+  };
   async function optimize(annual = false, layout = false) {
     if (!locationReady) { $('panel-advice').textContent='Cần GPS hoặc nhập tọa độ trước khi gợi ý.';return; }
     const year=Number($('date').value.slice(0,4));
@@ -169,6 +218,8 @@
       } while(!result.done);
       const best=result.value;
       if(best.score<=0) {$('panel-advice').textContent='Không tìm thấy ánh nắng trực tiếp đến pin trong khoảng mô phỏng này. Kiểm tra bóng che hoặc vị trí.';return;}
+      $('placement-ranking').innerHTML='';
+      previewPlacement({...c,bearing:best.bearing,tilt:best.tilt},best.positions||positions,`Đề xuất ${annual?'năm '+year:'trong ngày'}: hướng ${best.bearing}°, nghiêng ${best.tilt}°. Chỉ số đón nắng ${best.baseline.toFixed(3)} → ${best.score.toFixed(3)} (điểm hình học, không phải kWh). Bố trí hiện tại chưa thay đổi.`,()=>{
       globalThis.invalidateSolarPrediction?.();
       placedPanels=best.positions || positions;
       controls.bearing.value = $('energy-azimuth').value = best.bearing;
@@ -183,15 +234,50 @@
       $('panel-explanation').hidden=false;$('panel-explanation').open=true;
       recommendationKey=simulationKey();
       labels();render();
+      });
     } catch {
       $('panel-advice').textContent='Không tính được gợi ý. Bố trí hiện tại được giữ nguyên; hãy thử lại.';
     } finally {
       $('panel-optimize').disabled=$('panel-optimize-year').disabled=$('panel-layout-year').disabled=false;
     }
   }
-  $('panel-optimize').onclick=()=>optimize();
-  $('panel-optimize-year').onclick=()=>optimize(true);
-  $('panel-layout-year').onclick=()=>optimize(true,true);
+  let suggestionMode={annual:false,layout:false};
+  const suggestionDialog=$('panel-suggestion-dialog');
+  function chooseSuggestion(annual=false,layout=false) {
+    suggestionMode={annual,layout};$('panel-suggestion-status').textContent='';suggestionDialog.showModal();
+  }
+  $('panel-suggestion-cancel').onclick=()=>suggestionDialog.close();
+  $('panel-suggestion-auto').onclick=()=>{suggestionDialog.close();return optimize(suggestionMode.annual,suggestionMode.layout);};
+  $('panel-suggestion-rows').onclick=()=>{
+    const c=configuration();
+    let system;
+    try {system=globalThis.readEnergySystem();}catch(error){$('panel-suggestion-status').textContent=error.message;return;}
+    const positions=G.packPanels(c.count,0,c.length,c.width,G.moduleFor(c.watts)).sort((a,b)=>a.z-b.z || a.x-b.x);
+    if(positions.length!==c.count){$('panel-suggestion-status').textContent=`Chỉ xếp được ${positions.length}/${c.count} tấm thành hàng. Hãy tăng kích thước mái hoặc chọn gợi ý tối ưu.`;return;}
+    // Keep the existing round-robin tracker assignment, but interleave spatial
+    // groups so panels sharing a tracker occupy consecutive roof rows.
+    const trackers=system.inverter.mpptCount,groups=[];
+    let cursor=0;
+    for(let m=0;m<trackers;m++) {
+      const size=Math.floor(c.count/trackers)+(m<c.count%trackers?1:0);
+      groups.push(positions.slice(cursor,cursor+size));cursor+=size;
+    }
+    const rowPositions=Array.from({length:c.count},(_,i)=>groups[i%trackers][Math.floor(i/trackers)]);
+    suggestionDialog.close();$('placement-ranking').innerHTML='';
+    previewPlacement({...c,bearing:c.house,x:0,z:0},rowPositions,`Xếp ${c.count} tấm thẳng theo ${trackers} nhóm MPPT. Đổi hướng pin thành ${c.house}°, giữ nghiêng ${c.tilt}°. Bấm Áp dụng nếu đồng ý.`,()=>{
+    placedPanels=rowPositions;
+    controls.x.value=controls.z.value=0;
+    controls.bearing.value=$('energy-azimuth').value=c.house;
+    suggestionDialog.close();manual();labels();render();
+    globalThis.invalidateSolarPrediction?.();
+    $('panel-explanation-text').textContent=`Đã xếp ${c.count} tấm thành hàng song song mép mái, hướng pin ${c.house}°, giữ độ nghiêng ${c.tilt}°. Các nhóm MPPT nằm liền nhau theo thứ tự hàng: ${groups.map((g,i)=>`MPPT ${i+1}: ${g.length} tấm`).join('; ')}. Cách xếp ưu tiên hàng thẳng và gom nhóm, không tối ưu sản lượng theo nắng. Nhóm này dùng trong mô hình dự báo, chưa phải thiết kế đấu chuỗi điện.`;
+    $('panel-explanation').hidden=false;$('panel-explanation').open=true;
+    $('panel-advice').textContent='Đã xếp hàng theo nhóm MPPT. Bấm tính sản lượng để cập nhật dự báo.';
+    });
+  };
+  $('panel-optimize').onclick=()=>chooseSuggestion();
+  $('panel-optimize-year').onclick=()=>chooseSuggestion(true);
+  $('panel-layout-year').onclick=()=>chooseSuggestion(true,true);
   // Manual coordinates keep the planner useful when GPS is denied.
   for (const id of ['lat','lon']) $(id).addEventListener('change',()=>{
     if (!['lat','lon'].every(key=>$(key).value!=='' && $(key).checkValidity())) return;
@@ -310,18 +396,12 @@
     faces.forEach(face=>{face.stroke ||= '#879b96';});
     let shaded=0;
     const light=sun?G.incidence(sun,c.bearing,c.tilt):0;
-    const mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
-    const exposure=sun?G.exposure(shared,sun):null;
-    for(const [moduleIndex,module] of modules.entries()) {
-      const at=(u,v)=>mix(mix(module[0],module[1],u),mix(module[3],module[2],u),v);
-      // Each photovoltaic cell participates in the same depth buffer as the roof.
-      for(let row=0;row<6;row++)for(let col=0;col<6;col++) {
-        const blocked=exposure && !exposure.panels[moduleIndex].cells[row*6+col];
-        if(blocked)shaded++;
-        faces.push({p:[at(col/6,row/6),at((col+1)/6,row/6),at((col+1)/6,(row+1)/6),at(col/6,(row+1)/6)],color:blocked?'#142c3b':`hsl(204 43% ${24+light*24}%)`,stroke:'#81b1c2'});
-      }
-      for(const post of G.supports(module,buildingHeight,c.roof,c.house,c.width))faces.push({p:post,stroke:'#738887'});
+    const frame=G.renderCells(shared,sun||{azimuth:0,altitude:-90});
+    for(const cell of frame.cells) {
+      if(!cell.lit)shaded++;
+      faces.push({p:cell.p,color:cell.lit?`hsl(204 43% ${24+light*24}%)`:'#142c3b',stroke:'#81b1c2'});
     }
+    for(const module of modules)for(const post of G.supports(module,buildingHeight,c.roof,c.house,c.width))faces.push({p:post,stroke:'#738887'});
     surface.width=Math.round(width*dpr);surface.height=Math.round(height*dpr);
     const pixels=DepthRenderer.rasterize(surface.width,surface.height,faces,p=>{const v=project(p);return [v[0]*dpr,v[1]*dpr,v[2]];},colorOf);
     surfaceContext.putImageData(new ImageData(pixels,surface.width,surface.height),0,0);

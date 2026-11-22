@@ -30,6 +30,9 @@ globalThis.invalidateSolarPrediction = () => {
   $('energy-status').textContent = 'Thông số đã đổi. Bấm tính để cập nhật sản lượng.';
 };
 energyForm.addEventListener('input', globalThis.invalidateSolarPrediction);
+energyForm.addEventListener('invalid', event => {
+  if (Object.values(systemFields).some(fields=>Object.values(fields).includes(event.target.id)) && !['inverter-ac','inverter-pv'].includes(event.target.id)) $('inverter-advanced').open=true;
+}, true);
 $('energy-preview-open').onclick = () => {
   energyDialog.scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('energy-location').textContent = `${$('location-name').textContent} · ${lat.toFixed(4)}, ${lon.toFixed(4)} · UTC${offset >= 0 ? '+' : ''}${offset}`;
@@ -53,6 +56,10 @@ energyForm.addEventListener('submit', event => {
   if (!locationReady) { $('energy-status').textContent = 'Cần cấp quyền GPS trước khi dự đoán điện mặt trời.'; return; }
   try {globalThis.readEnergySystem();saveProfile();calculateEnergy();} catch(error){$('energy-status').textContent=error.message;}
 });
+function forecastInputKey() {
+  const scene=globalThis.getEnergyScene();
+  return JSON.stringify([scene.config,scene.positions,globalThis.readEnergySystem(),lat,lon,offset,today(),$('energy-reserve').checked,Number($('energy-tilt').value),Number($('energy-azimuth').value),Number($('energy-count').value),Number($('energy-watts').value)]);
+}
 async function calculateEnergy() {
   if (!energyForm.checkValidity()) {
     $('energy-status').textContent = 'Thông số hệ thống không hợp lệ.';
@@ -64,7 +71,6 @@ async function calculateEnergy() {
   }
   const kwp = Number($('energy-count').value)*Number($('energy-watts').value)/1000;
   if (!Number.isInteger(Number($('energy-count').value)) || Number($('energy-count').value)<1 || Number($('energy-count').value)>30 || !PanelGeometry.moduleFor(Number($('energy-watts').value))) return;
-  const tilt = Number($('energy-tilt').value), azimuth = Number($('energy-azimuth').value);
   $('energy-location').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)} · UTC${offset >= 0 ? '+' : ''}${offset}`;
   const day = today();
   // The selected UTC offset defines today's midnight; ignore simulation date/time.
@@ -83,12 +89,13 @@ async function calculateEnergy() {
   try {
     const system=globalThis.readEnergySystem(),scene=globalThis.getEnergyScene();
     if(kwp>system.inverter.maxPvKw)throw Error('Công suất PV DC vượt giới hạn tiếp nhận của inverter.');
-    const forecastLocation={lat,lon,offset};
-    const params = new URLSearchParams({ latitude: lat.toFixed(4), longitude: lon.toFixed(4), hourly: 'global_tilted_irradiance,direct_normal_irradiance,cloud_cover,rain,showers', tilt: String(tilt), azimuth: String(azimuth - 180), timezone: 'UTC', timeformat: 'unixtime', start_date: from, end_date: to });
+    const forecastLocation={lat,lon,offset},inputKey=forecastInputKey();
+    const params = new URLSearchParams({ latitude: lat.toFixed(4), longitude: lon.toFixed(4), hourly: 'global_tilted_irradiance,direct_normal_irradiance,cloud_cover,rain,showers', tilt: String(scene.config.tilt), azimuth: String(scene.config.bearing - 180), timezone: 'UTC', timeformat: 'unixtime', start_date: from, end_date: to });
     const response = await ForecastClient.fetch(params, { signal: controller.signal });
     if (!response.ok) throw new Error('Không tải được dự báo. Hãy kiểm tra mạng và thử lại.');
     const data = await response.json();
     if (request !== energyRequest) return;
+    if(inputKey!==forecastInputKey()){globalThis.invalidateSolarPrediction();return;}
     if(controller.signal.aborted)throw new DOMException('Yêu cầu quá thời gian','AbortError');
     if (data.hourly_units?.global_tilted_irradiance !== 'W/m²' || data.hourly_units?.direct_normal_irradiance !== 'W/m²') throw new Error('Đơn vị bức xạ không hợp lệ.');
     const result = Energy.estimateSystem(data.hourly, start, end, {...system,scene,location:forecastLocation});

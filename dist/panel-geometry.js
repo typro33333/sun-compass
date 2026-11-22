@@ -29,6 +29,25 @@
       if(next.length>best.length)best=next;
       if(best.length===count)return best;
     }
+    // Scan a complete lattice across the roof, not only count cells of a
+    // centered rectangle: clipping that rectangle loses usable end regions.
+    const localRoof=[[-width/2,0,-length/2],[width/2,0,-length/2],[width/2,0,length/2],[-width/2,0,length/2]].map(p=>rotate(p,-bearing));
+    const minX=Math.min(...localRoof.map(p=>p[0])),maxX=Math.max(...localRoof.map(p=>p[0]));
+    const minZ=Math.min(...localRoof.map(p=>p[2])),maxZ=Math.max(...localRoof.map(p=>p[2]));
+    for(const rotation of [0,90]) {
+      const dx=(rotation?module.length:module.width)+.02,dz=(rotation?module.width:module.length)+.02;
+      for(const phaseX of [0,.25,.5,.75])for(const phaseZ of [0,.25,.5,.75]) {
+        const next=[];
+        for(let x=minX+phaseX*dx;x<=maxX;x+=dx)for(let z=minZ+phaseZ*dz;z<=maxZ;z+=dz) {
+          const center=rotate([x,0,z],bearing),point={x:center[0],z:center[2],rotation};
+          // Lattice spacing already guarantees a 20 mm gap between panels.
+          if(validPlacement([point],bearing,length,width,module))next.push(point);
+        }
+        next.sort((a,b)=>a.x*a.x+a.z*a.z-b.x*b.x-b.z*b.z);
+        if(next.length>best.length)best=next.slice(0,count);
+        if(best.length===count)return best;
+      }
+    }
     return best;
   }
   function vector(azimuth, altitude) {
@@ -140,6 +159,7 @@
 
   function scene(config,positions) {
     const c={width:8,x:0,z:0,...config}, module=moduleFor(c.watts);
+    if(['width','length','count','bearing','tilt','floors','x','z','house','left','right','roof','leftRoof','rightRoof'].some(k=>!Number.isFinite(c[k])) || c.width<=0 || c.length<=0 || c.tilt<0 || c.tilt>90 || !Number.isInteger(c.count) || c.count<1 || c.count>30 || positions?.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.z)||![0,90,180,270].includes(p.rotation??0)))throw Error('Geometry không hợp lệ.');
     if(!module || !positions?.length || positions.length!==c.count || !validPlacement(positions.map(p=>({...p,x:p.x+c.x,z:p.z-c.z})),c.bearing-c.house,c.length,c.width,module))throw Error('Bố trí pin không hợp lệ.');
     const height=(c.floors+1)*3.2,rotateHouse=p=>rotate(p,c.house);
     // Exact same module dimensions, rotation, shifts and mounting height for render and energy.
@@ -151,13 +171,15 @@
       const l=b.x-b.width/2-.5,r=b.x+b.width/2+.5,d=b.depth/2+.5,h=b.height;
       return [[[l,h,-d],[b.x,h+3,-d],[b.x,h+3,d],[l,h,d]],[[b.x,h+3,-d],[r,h,-d],[r,h,d],[b.x,h+3,d]],[[l,h,-d],[r,h,-d],[b.x,h+3,-d]],[[l,h,d],[b.x,h+3,d],[r,h,d]]].map(f=>f.map(rotateHouse));
     });
-    return {config:{...c},positions:positions.map(p=>({...p})),module,modules:surfaces,neighbors:adjacent,buildings,roofs,roofFaces,volumes:occluders(buildings)};
+    const panels=surfaces.map((vertices,i)=>({id:i+1,position:vertices[0].map((v,k)=>(v+vertices[2][k])/2),dimensions:{width:module.width,length:module.length},azimuth:c.bearing,tilt:c.tilt,rotation:positions[i].rotation||0,normal:vector(c.bearing,90-c.tilt),vertices}));
+    return {config:{...c},positions:positions.map(p=>({...p})),module,panels,modules:surfaces,neighbors:adjacent,buildings,roofs,roofFaces,volumes:occluders(buildings)};
   }
   function exposure(scene,sun,grid=6) {
+    if(!Number.isFinite(sun?.azimuth)||!Number.isFinite(sun?.altitude))throw Error('Góc mặt trời không hợp lệ.');
     if(!Number.isInteger(grid)||grid<1||grid>30)throw Error('Lưới bóng che không hợp lệ.');
     const c=scene.config,ray=rotate(vector(sun.azimuth,sun.altitude),-c.house);
     const facing=incidence(sun,c.bearing,c.tilt);
-    const panels=scene.modules.map(face=>{
+    const panels=scene.panels.map(({id,vertices:face})=>{
       const cells=Array.from({length:grid*grid},(_,i)=>{
         if(sun.altitude<=0 || facing<=1e-12)return false;
         const u=(i%grid+.5)/grid,v=(Math.floor(i/grid)+.5)/grid;
@@ -165,9 +187,18 @@
         return !rayBlocked(rotate(p,-c.house),ray,scene.volumes);
       });
       const litFraction=cells.filter(Boolean).length/cells.length,area=scene.module.width*scene.module.length;
-      return {cells,litFraction,shadeFraction:sun.altitude>0 && facing>1e-12 ? 1-litFraction : null,area,litArea:area*litFraction};
+      return {id,cells,litFraction,shadeFraction:sun.altitude>0 && facing>1e-12 ? 1-litFraction : null,area,litArea:area*litFraction};
     });
     return {incidence:facing,panels};
+  }
+  // The renderer consumes these exact per-cell surfaces and lit flags.
+  function renderCells(scene,sun,grid=6) {
+    const sample=exposure(scene,sun,grid),cells=[];
+    scene.panels.forEach((panel,i)=>{
+      const f=panel.vertices,at=(u,v)=>f[0].map((n,k)=>n+(f[1][k]-n)*u+(f[3][k]-n)*v);
+      for(let row=0;row<grid;row++)for(let col=0;col<grid;col++)cells.push({panelId:panel.id,lit:sample.panels[i].cells[row*grid+col],p:[at(col/grid,row/grid),at((col+1)/grid,row/grid),at((col+1)/grid,(row+1)/grid),at(col/grid,(row+1)/grid)]});
+    });
+    return {exposure:sample,cells};
   }
   function annualSamples(year, latitude, longitude, offset, position) {
     const samples = [];
@@ -307,6 +338,6 @@
       moved:(best.positions || positions).filter((p,i)=>Math.hypot(p.x-positions[i].x,p.z-positions[i].z)>.05).length
     }};
   }
-  root.PanelGeometry = { scene, exposure, moduleCatalog, moduleFor, packPanels, vector, angle, incidence, corners, shadow, rotate, neighbors, blocked, recommend, recommendScene, annualSamples, roofHeight, supports, panelLayout, individualPanels, validPlacement };
+  root.PanelGeometry = { scene, exposure, renderCells, moduleCatalog, moduleFor, packPanels, vector, angle, incidence, corners, shadow, rotate, neighbors, blocked, recommend, recommendScene, annualSamples, roofHeight, supports, panelLayout, individualPanels, validPlacement };
   if (typeof module !== 'undefined') module.exports = root.PanelGeometry;
 })(typeof window !== 'undefined' ? window : globalThis);

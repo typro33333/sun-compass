@@ -1,0 +1,12 @@
+AssertionError [ERR_ASSERTION]: Weather orientation must match shared scene
+
+'30' !== '0'
+
+    at <anonymous> (/Users/thinhth1/Desktop/vibe-code/laban-sun/sun-compass/tests/energy-flow.test.cjs:18:9)
+    at processTicksAndRejections (native:7:39) {
+  generatedMessage: false,
+  actual: '30',
+  expected: '0',
+  operator: 'strictEqual',
+  code: 'ERR_ASSERTION'
+}

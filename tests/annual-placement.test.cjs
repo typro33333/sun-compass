@@ -1,0 +1,26 @@
+const assert=require('node:assert/strict');
+const G=require('../dist/panel-geometry.js'),E=require('../dist/energy.js');require('../dist/solar.js');
+const A=require('../dist/annual-placement.js');
+const config={width:6,length:8,count:2,watts:600,roof:0,bearing:90,tilt:20,floors:0,x:0,z:0,house:0,left:0,right:3,leftRoof:0,rightRoof:1};
+const positions=[{x:-1.8,z:-2},{x:1.8,z:2}],system=E.defaultSystem();
+const scenario=A.scenario({year:2026,location:{lat:10.8231,lon:106.6297,offset:7},config,annualPoa:1600});
+assert.equal(scenario.days.length,12);
+const poa=scenario.days.reduce((sum,d)=>sum+d.weight*d.hourly.global_tilted_irradiance.reduce((a,b)=>a+b,0)/1000,0);
+assert(Math.abs(poa-1600)<1e-8);
+assert.equal(scenario.days.reduce((s,d)=>s+d.weight,0),365);
+assert.equal(A.scenario({year:2024,location:{lat:-33,lon:151,offset:11},config,annualPoa:1600}).days.reduce((s,d)=>s+d.weight,0),366);
+const candidates=A.candidates(config,{spacing:.2,step:2});
+assert(candidates.length>0);assert(candidates.every(p=>G.validPlacement([p],90,8,6,G.moduleFor(600))));
+const input={config,positions,system,scenario,spacing:.2,step:2},before=JSON.stringify(input);
+function finish(){const iterator=A.propose(input);let step;do{step=iterator.next();}while(!step.done);return step.value;}
+const proposal=finish();
+assert.equal(JSON.stringify(input),before,'Searching never mutates current layout/settings');
+assert.deepEqual(proposal,finish(),'Deterministic ranking and placement');
+assert.equal(proposal.positions.length,2);
+assert(A.valid(proposal.positions,proposal.config,.2));
+assert(proposal.proposed.acKwh>=proposal.manual.acKwh-1e-8,'Keep a feasible baseline if greedy does not improve');
+assert(proposal.ranking.every((r,i,a)=>Number.isFinite(r.dcKwh)&&r.shadeFraction>=0&&r.shadeFraction<=1&&(!i||a[i-1].dcKwh>=r.dcKwh-1e-8)));
+assert(proposal.ranking.some(r=>r.shadeFraction>0));
+assert.throws(()=>A.scenario({year:2026,location:{lat:0,lon:0,offset:0},config,annualPoa:NaN}));
+assert.throws(()=>A.candidates(config,{spacing:-1,step:2}));
+console.log(`Annual placement: ${proposal.ranking.length} ranked positions; deterministic, spacing, count, unchanged inputs, AC comparison and 1600 kWh/m² normalization passed.`);

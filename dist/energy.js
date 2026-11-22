@@ -69,11 +69,11 @@
       const i=index.get(interval.time),gti=hourly.global_tilted_irradiance[i],dni=hourly.direct_normal_irradiance?.[i];
       if(!Number.isFinite(dni)||dni<0)throw Error('Thiếu bức xạ trực tiếp DNI theo giờ.');
       const from=Math.max(start,interval.time-3600),to=Math.min(end,interval.time);
-      const row={time:interval.time,durationHours:(to-from)/3600,kwh:0,dcKwh:0,clippingKwh:0,mpptLossKwh:0,panels:scene.modules.map((_,id)=>({id:id+1,mppt:id%inverter.mpptCount+1,dcKwh:0,acKwh:0,shadeLossKwh:0,litFraction:0}))};
+      const row={time:interval.time,durationHours:(to-from)/3600,kwh:0,dcKwh:0,clippingKwh:0,mpptLossKwh:0,panels:scene.panels.map((panel,id)=>({id:panel.id,mppt:id%inverter.mpptCount+1,dcKwh:0,acKwh:0,shadeLossKwh:0,litFraction:0}))};
       // 15-minute quadrature of geometry within each backward-averaged weather hour.
       for(let t=from;t<to;t+=900) {
         const seconds=Math.min(900,to-t),dt=seconds/3600;
-        const sample=G.exposure(scene,sunAt(t+seconds/2));
+        const sample=G.exposure(scene,sunAt(t+seconds/2),options.grid??6);
         const beam=Math.min(gti,Math.max(0,dni*sample.incidence));
         const powers=sample.panels.map((panel,p)=>{
           const raw=scene.config.watts/1000*gti/1000;
@@ -97,6 +97,7 @@
         total.inverterLossKwh+=(dc-beforeClip)*dt;total.clippingKwh+=(beforeClip-ac)*dt;row.clippingKwh+=(beforeClip-ac)*dt;
         total.kwh+=ac*dt;row.kwh+=ac*dt;
         admitted.forEach((p,id)=>{row.panels[id].acKwh+=dc>0?ac*dt*p/dc:0;});
+        options.onSample?.({timestamp:t+seconds/2,durationSeconds:seconds,exposure:sample,directIrradiance:beam,dcKw:powers,admittedKw:admitted,acKw:ac,clippingKw:beforeClip-ac,mpptKw:Array.from({length:inverter.mpptCount},(_,m)=>admitted.reduce((sum,p,i)=>sum+(i%inverter.mpptCount===m?p:0),0))});
       }
       total.hours.push(row);
     }
