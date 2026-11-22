@@ -68,13 +68,17 @@
     const count=placedPanels.length,kwp=count*c.watts/1000;
     const nextCapacityKey=JSON.stringify([c.width,c.length,c.bearing-c.house,c.watts]);
     if(nextCapacityKey!==capacityKey){capacityKey=nextCapacityKey;capacity=G.packPanels(30,c.bearing-c.house,c.length,c.width,module).length;}
-    $('energy-count').max=controls.count.max=Math.max(capacity,count);
+    $('energy-count').max=controls.count.max=30;
     if(initialized && Math.abs(Number($('energy-kwp').value)-kwp)>1e-9)globalThis.invalidateSolarPrediction?.();
     $('energy-count').value=count;$('energy-kwp').value=kwp.toFixed(3);
     $('module-description').textContent=`${count} tấm × ${c.watts} W = ${kwp.toFixed(3)} kWp · Dài ${Math.round(module.length*1000)} × rộng ${Math.round(module.width*1000)} mm · ${module.model}`;
     $('module-source').href=module.source;
     $('roof-capacity').textContent=`Đã đặt ${count} tấm · Bố trí tự động tìm được chỗ cho ${capacity} tấm trên mái ${c.width} × ${c.length} m. Có thể sắp xếp thủ công; chỉ nhận vị trí không chồng lấn, không vượt mái, tối đa 30 tấm.`;
-    if(count<c.count)$('panel-advice').textContent=`Kích thước mái/hướng hiện tại chỉ xếp được ${count}/${c.count} tấm theo bố trí tự động. Đã cập nhật số lượng và công suất.`;
+    if(count<c.count) {
+      const reason=`Không xếp được ${c.count} tấm: bố trí tự động hiện tìm được ${count} tấm trên mái ${c.width} × ${c.length} m, với tấm ${module.length} × ${module.width} m và hướng tương đối ${Math.round(c.bearing-c.house)}°. Đã giữ ${count} tấm để không chồng lấn hoặc vượt mái. Hãy tăng chiều rộng/dài nhà, đổi hướng hoặc sắp xếp thủ công.`;
+      $('panel-advice').textContent=reason;
+      if(initialized)globalThis.showSolarNotice?.(reason,true);
+    }
   }
   $('energy-count').addEventListener('change',()=>{
     const n=Number($('energy-count').value);
@@ -308,8 +312,6 @@
     const light=sun?G.incidence(sun,c.bearing,c.tilt):0;
     const mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
     const exposure=sun?G.exposure(shared,sun):null;
-    globalThis.refreshPanelPower=()=>{if(sun)globalThis.renderPanelPower?.(shared,sun,$('date').value,minute,exposure);};
-    globalThis.refreshPanelPower();
     for(const [moduleIndex,module] of modules.entries()) {
       const at=(u,v)=>mix(mix(module[0],module[1],u),mix(module[3],module[2],u),v);
       // Each photovoltaic cell participates in the same depth buffer as the roof.
