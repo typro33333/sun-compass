@@ -165,7 +165,7 @@
         return !rayBlocked(rotate(p,-c.house),ray,scene.volumes);
       });
       const litFraction=cells.filter(Boolean).length/cells.length,area=scene.module.width*scene.module.length;
-      return {cells,litFraction,area,litArea:area*litFraction};
+      return {cells,litFraction,shadeFraction:sun.altitude>0 && facing>1e-12 ? 1-litFraction : null,area,litArea:area*litFraction};
     });
     return {incidence:facing,panels};
   }

@@ -65,4 +65,18 @@ test('night has no direct yield; diffuse zero stays zero',()=>{
  const o=options();o.sunAt=()=>({azimuth:90,altitude:-10});
  const r=E.estimateSystem(data(0,0),start,start+3600,o);near(r.kwh,0);assert(Number.isFinite(r.shadeLossKwh));
 });
+test('render masks agree with forecast per panel at four local times',()=>{
+ const Solar=require('../dist/solar.js');
+ for(const minute of [390,540,720,990]) {
+  const c={...config,house:122,bearing:295,left:5,right:5,leftRoof:1,rightRoof:1};
+  const scene=G.scene(c,positions),sun=Solar.position('2026-06-21',minute,10.8231,106.6297,7);
+  const mask=G.exposure(scene,sun);
+  const result=E.estimateSystem(data(700,600),start,start+3600,{...system,scene,sunAt:()=>sun});
+  mask.panels.forEach((p,i)=>{
+   near(result.hours[0].panels[i].litFraction,p.cells.filter(Boolean).length/36);
+   if(mask.incidence>1e-12 && sun.altitude>0)near(p.shadeFraction,1-p.litFraction);
+   else assert.equal(p.shadeFraction,null);
+  });
+ }
+});
 if(failures)process.exitCode=1;

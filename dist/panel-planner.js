@@ -308,6 +308,8 @@
     const light=sun?G.incidence(sun,c.bearing,c.tilt):0;
     const mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
     const exposure=sun?G.exposure(shared,sun):null;
+    globalThis.refreshPanelPower=()=>{if(sun)globalThis.renderPanelPower?.(shared,sun,$('date').value,minute,exposure);};
+    globalThis.refreshPanelPower();
     for(const [moduleIndex,module] of modules.entries()) {
       const at=(u,v)=>mix(mix(module[0],module[1],u),mix(module[3],module[2],u),v);
       // Each photovoltaic cell participates in the same depth buffer as the roof.
@@ -322,7 +324,7 @@
     const pixels=DepthRenderer.rasterize(surface.width,surface.height,faces,p=>{const v=project(p);return [v[0]*dpr,v[1]*dpr,v[2]];},colorOf);
     surfaceContext.putImageData(new ImageData(pixels,surface.width,surface.height),0,0);
     ctx.drawImage(surface,0,0,width,height);
-    $('panel-shade').textContent=sun && sun.altitude>0 ? `≈ ${Math.round(shaded/(36*c.count)*100)}%` : '—';
+    $('panel-shade').textContent=sun && sun.altitude>0 && light<=1e-12 ? 'Quay khỏi nắng' : sun && sun.altitude>0 ? `≈ ${Math.round(shaded/(36*c.count)*100)}%` : '—';
     if(sun)$('panel-incidence').textContent=`${Math.round(light*(1-shaded/(36*c.count))*100)}%`;
     // Draw the enlarged celestial arc over geometry so tall houses cannot hide it.
     if(orbit.length && locationReady) {ctx.setLineDash([5,4]);polygon(orbit,null,'#bd8a23',2.5);ctx.setLineDash([]);}

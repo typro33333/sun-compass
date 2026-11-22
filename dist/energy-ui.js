@@ -12,13 +12,18 @@ globalThis.applyEnergySystem=system=>{
 };
 globalThis.applyEnergySystem(Energy.defaultSystem());
 $('energy-reserve').checked=false;
+let forecastSnapshot=null;
 let energyRequest = 0, energyController, lastPredictionAt = 0;
 globalThis.invalidateSolarPrediction = () => {
   energyRequest++;
+  forecastSnapshot=null;
   energyController?.abort();
   $('energy-calculate').disabled = false;
   $('energy-result').hidden = true;
-  $('energy-preview').hidden = true;
+  $('energy-preview').hidden = false;
+  $('energy-preview-text').textContent = 'Cấu hình đã đổi · Cần tính lại dự báo. Bấm xem hệ thống để tính lại.';
+  $('panel-power-status').textContent='Cần tính lại dự báo để xem DC/AC.';
+  $('panel-power-body').innerHTML='';
   $('energy-status').textContent = 'Thông số đã đổi. Bấm tính để cập nhật sản lượng.';
 };
 energyForm.addEventListener('input', globalThis.invalidateSolarPrediction);
@@ -81,8 +86,11 @@ async function calculateEnergy() {
     if (!response.ok) throw new Error('Không tải được dự báo. Hãy kiểm tra mạng và thử lại.');
     const data = await response.json();
     if (request !== energyRequest) return;
+    if(controller.signal.aborted)throw new DOMException('Yêu cầu quá thời gian','AbortError');
     if (data.hourly_units?.global_tilted_irradiance !== 'W/m²' || data.hourly_units?.direct_normal_irradiance !== 'W/m²') throw new Error('Đơn vị bức xạ không hợp lệ.');
     const result = Energy.estimateSystem(data.hourly, start, end, {...system,scene,location:forecastLocation});
+    forecastSnapshot={hourly:data.hourly,system,scene,location:forecastLocation,day};
+    globalThis.refreshPanelPower?.();
     renderEnergyAnalysis(result, forecastLocation.offset);
     const reserve = Energy.weatherReserve(data.hourly, result);
     const useReserve = $('energy-reserve').checked && reserve !== null;
@@ -101,6 +109,7 @@ async function calculateEnergy() {
     $('energy-preview-text').textContent = `☀ Hôm nay ${day}: khoảng ${output.toLocaleString(globalThis.solLocale?.() || 'vi-VN', { maximumFractionDigits: 1 })} kWh · hệ ${kwp} kWp${savedProfile ? '' : ' (mẫu, hãy chỉnh công suất)'} · ${weatherLabel} · Giảm dự phòng ${reduction.toFixed(1)}%${data._cache?.stale ? ' · Dữ liệu lưu tạm' : ''} · dự báo, không phải số điện đã đo`;
   } catch (error) {
     if (request === energyRequest) {
+      lastPredictionAt=0;
       $('energy-preview-text').textContent = 'Chưa tải được dự báo điện hôm nay. Mở hệ thống để thử lại.';
       $('energy-status').textContent = error.name === 'AbortError' ? 'Yêu cầu quá thời gian. Hãy thử lại.' : error.message;
     }
@@ -109,6 +118,18 @@ async function calculateEnergy() {
     if (request === energyRequest) $('energy-calculate').disabled = false;
   }
 }
+globalThis.renderPanelPower=(scene,sun,day,minute,exposure)=>{
+  const status=$('panel-power-status'),body=$('panel-power-body');
+  let powers=null;
+  status.textContent=`${day} · ${String(Math.floor(minute/60)).padStart(2,'0')}:${String(Math.floor(minute%60)).padStart(2,'0')} · Bóng che tức thời; DC/AC ước tính từ bức xạ trung bình giờ. AC phân bổ sau inverter.`;
+  if(forecastSnapshot && forecastSnapshot.day===day) {
+    try {
+      const t=Date.parse(day+'T00:00:00Z')/1000-forecastSnapshot.location.offset*3600+minute*60;
+      powers=Energy.estimateSystem(forecastSnapshot.hourly,t,t+1,{...forecastSnapshot.system,scene,location:forecastSnapshot.location,sunAt:()=>sun}).hours[0]?.panels;
+    }catch {status.textContent+=' Không có dữ liệu bức xạ cho thời điểm này.';}
+  }else status.textContent+=' Chưa có dự báo phù hợp ngày/cấu hình; hãy tính lại cho hôm nay.';
+  body.innerHTML=exposure.panels.map((p,i)=>`<tr><td>${i+1}</td><td>${p.shadeFraction===null?(sun.altitude<=0?'Dưới chân trời':'Mặt pin quay khỏi nắng'):(p.shadeFraction*100).toFixed(1)+'%'}</td><td>${powers?(powers[i].dcKwh*3600).toFixed(3):'—'}</td><td>${powers?(powers[i].acKwh*3600).toFixed(3):'—'}</td></tr>`).join('');
+};
 function renderEnergyAnalysis(result, offset) {
   $('energy-dc-total').textContent=result.dcKwh.toFixed(2);
   $('energy-ac-total').textContent=result.kwh.toFixed(2);
@@ -145,7 +166,6 @@ globalThis.onSolarLocationChanged = () => {
   profileLocationKey = key;
   lastPredictionDay = today();
   // Persist only on explicit Calculate; background refresh must not save draft inputs.
-  lastPredictionAt = Date.now();
   calculateEnergy();
 };
 document.addEventListener('visibilitychange', () => {
