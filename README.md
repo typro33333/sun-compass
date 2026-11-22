@@ -327,3 +327,11 @@ Kiểm tra tự động: `bun run test` (bóng che riêng từng tấm, bất bi
 Báo cáo kiến trúc, lỗi tái hiện, contract geometry, kết quả test trước/sau và giới hạn: [docs/validation/AUDIT.md](docs/validation/AUDIT.md). Chạy regression CI bằng `bun run test:ci`.
 
 Trong Gợi ý có prototype so sánh bố trí theo kWh/năm với bức xạ năm giả định do người dùng nhập. Kết quả có preview và xác nhận trước khi áp dụng; không phải dự báo khí hậu năm từ Open-Meteo. Các gợi ý hiện hữu cũng cần xác nhận ở màn hình so sánh.
+
+### Mái Thái và tính toán nhanh
+
+Mái Thái có lựa chọn dựng khung (mặc định tương thích profile cũ), áp dốc trái hoặc áp dốc phải. Áp mái lấy hướng theo dốc, góc nghiêng theo đỉnh cao 3 m/chiều rộng mái, khoảng hở giả định 12 cm; khóa chỉnh góc và không cho tấm bắc qua đỉnh. Packing dùng footprint chưa nghiêng nên bảo thủ về sức chứa của một dốc. Hiện chưa đặt đồng thời cả hai dốc trong cùng hệ thống; muốn hướng/nghiêng tự chọn hãy dùng dựng khung. Gợi ý trong chế độ áp mái dùng prototype năm để giữ đúng hướng dốc.
+
+Engine cache điểm lấy mẫu theo snapshot scene và độ phân giải; prototype năm cache vị trí mặt trời cùng các bố trí đã đánh giá trong một lượt tìm kiếm, xử lý theo lô có nhường luồng UI. Không giảm số ô bóng che hoặc bước thời gian. Bắt đầu tính có thông báo và nhường một nhịp để giao diện kịp hiển thị. Home mặc định mở 3D nếu canvas được hỗ trợ, vẫn chuyển được về 2D.
+
+Benchmark tái lập: `bun scripts/benchmark-simulation.cjs` (18 tấm, mái 6 × 20 m, nhà bên 5 tầng, 12 ngày đại diện). Trên máy phát triển: lần trước cache 176 ms, các lần sau 133–137 ms; AC cùng 6988.144592093114 kWh theo kịch bản giả định. Số đo đơn lẻ phụ thuộc máy/JIT, không phải ngưỡng CI hoặc tốc độ điện thoại.

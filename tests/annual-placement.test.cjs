@@ -24,3 +24,15 @@ assert(proposal.ranking.some(r=>r.shadeFraction>0));
 assert.throws(()=>A.scenario({year:2026,location:{lat:0,lon:0,offset:0},config,annualPoa:NaN}));
 assert.throws(()=>A.candidates(config,{spacing:-1,step:2}));
 console.log(`Annual placement: ${proposal.ranking.length} ranked positions; deterministic, spacing, count, unchanged inputs, AC comparison and 1600 kWh/m² normalization passed.`);
+
+const Solar=globalThis.Solar,originalPosition=Solar.position;
+let calls=0;Solar.position=(...args)=>{calls++;return originalPosition(...args);};
+const fresh=A.scenario({year:2026,location:{lat:10.8,lon:106.6,offset:7},config,annualPoa:1600});
+calls=0;const first=A.evaluate(config,positions,system,fresh),firstCalls=calls;
+const second=A.evaluate(config,positions,system,fresh);
+assert(firstCalls>0);assert.equal(calls,firstCalls,'Repeated annual evaluations reuse solar positions');assert.deepEqual(first,second);
+Solar.position=originalPosition;
+const flush=G.mounting({...config,roof:1,mount:2}),flushPositions=G.packRoof(flush,2);
+const flushClimate=A.scenario({year:2026,location:{lat:10.8,lon:106.6,offset:7},config:flush,annualPoa:1600});
+assert(A.evaluate(flush,flushPositions,system,flushClimate).acKwh>0);
+assert(A.candidates(flush).every(p=>G.validRoofPlacement(flush,[p])));

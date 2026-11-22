@@ -9,7 +9,7 @@ const start=Date.parse('2026-06-21T00:00:00Z')/1000-7*3600;
 const payload={hourly_units:{global_tilted_irradiance:'W/m²',direct_normal_irradiance:'W/m²'},hourly:{time:Array.from({length:24},(_,i)=>start+(i+1)*3600),global_tilted_irradiance:Array(24).fill(100),direct_normal_irradiance:Array(24).fill(0),cloud_cover:Array(24).fill(100),rain:Array(24).fill(2),showers:Array(24).fill(0)}};
 const ctx={$,Energy:E,PanelGeometry:G,Solar,isSolarCalculator:true,document:{getElementById:$,addEventListener(){}},localStorage:{},SolarProfile:{migrate:()=>null,write(){}},locationReady:true,lat:10,lon:106,offset:7,today:()=> '2026-06-21',getEnergyScene:()=>G.scene(config,[{x:-2,z:0},{x:2,z:0}]),URLSearchParams,Date,AbortController,setTimeout,clearTimeout,setInterval:()=>0,ForecastClient:{fetch:async query=>{calls++;lastQuery=query;if(release)await new Promise(resolve=>release.resolve=resolve);return {ok:true,json:async()=>payload};}}};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync(require.resolve('../dist/energy-ui.js'),'utf8'),ctx);
-const wait=()=>new Promise(r=>setTimeout(r,5));
+const wait=()=>new Promise(r=>setTimeout(r,60));
 (async()=>{
  assert.equal($('energy-reserve').checked,false);
  ctx.applyEnergySystem({losses:{temperature:0,wiring:0,soiling:0,other:0},inverter:{acKw:1,maxPvKw:2,efficiency:100,mpptCount:1,mpptMinV:100,mpptMaxV:500,mpptMaxA:30,operatingV:300}});

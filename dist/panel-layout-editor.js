@@ -13,6 +13,7 @@
     let draft=[],selected=0,c,drag=null;
     const module=()=>PanelGeometry.moduleFor(c.watts);
     const bearing=()=>c.bearing-c.house;
+    const valid=positions=>PanelGeometry.validRoofPlacement({...c,x:0,z:0},positions,module());
     function message(text){find('layout-status').textContent=text;}
     function draw(focus=false) {
       const polygons=PanelGeometry.individualPanels(draft,bearing(),0,0,module());
@@ -30,12 +31,12 @@
     }
     function move(x,z) {
       const next=draft.map((p,i)=>i===selected?{...p,x,z}:p);
-      if(!PanelGeometry.validPlacement(next,bearing(),c.length,c.width,module())){message('Vị trí này chồng lên tấm khác hoặc vượt mép mái.');return;}
+      if(!valid(next)){message('Vị trí này chồng lên tấm khác, vượt mép mái hoặc nằm ngoài dốc mái đã chọn.');return;}
       draft=next;draw();message(`${draft.length} tấm · Tấm ${selected+1}: ngang ${x.toFixed(1)} m, dọc ${z.toFixed(1)} m.`);
     }
     function rotateSelected() {
       const next=draft.map((p,i)=>i===selected?{...p,rotation:((p.rotation||0)+90)%360}:p);
-      if(!PanelGeometry.validPlacement(next,bearing(),c.length,c.width,module())){message('Không thể xoay ở đây: tấm pin sẽ chồng lên tấm khác hoặc vượt mép mái. Hãy dịch tấm ra chỗ trống rồi xoay.');return;}
+      if(!valid(next)){message('Không thể xoay ở đây: tấm pin sẽ chồng lên tấm khác hoặc vượt mép mái. Hãy dịch tấm ra chỗ trống rồi xoay.');return;}
       draft=next;draw();message(`Đã xoay tấm ${selected+1} 90°. Bấm Áp dụng lên 3D để lưu.`);
     }
     find('layout-rotate').onclick=rotateSelected;
@@ -56,13 +57,13 @@
     find('layout-add').onclick=()=>{
       if(draft.length>=30)return;
       for(const rotation of [0,90])for(let z=-c.length/2;z<=c.length/2;z+=.2)for(let x=-c.width/2;x<=c.width/2;x+=.2) {
-        const next=[...draft,{x,z,rotation}];if(PanelGeometry.validPlacement(next,bearing(),c.length,c.width,module())){draft=next;selected=draft.length-1;draw(true);message(`${draft.length} tấm`);return;}
+        const next=[...draft,{x,z,rotation}];if(valid(next)){draft=next;selected=draft.length-1;draw(true);message(`${draft.length} tấm`);return;}
       }
       message('Không còn vị trí trống. Hãy di chuyển các tấm hoặc xếp tự động.');
     };
     find('layout-remove').onclick=()=>{if(draft.length<=1)return;draft.splice(selected,1);selected=Math.min(selected,draft.length-1);draw(true);message(`${draft.length} tấm`);};
     find('layout-auto').onclick=()=>{draft=getPositions(draft.length,true).map(p=>({...p}));selected=Math.min(selected,draft.length-1);draw();message('Đã xếp tự động.');};
-    find('layout-apply').onclick=()=>{if(!PanelGeometry.validPlacement(draft,bearing(),c.length,c.width,module())){message('Bố trí chưa hợp lệ.');return;}apply(draft);dialog.close();};
+    find('layout-apply').onclick=()=>{if(!valid(draft)){message('Bố trí chưa hợp lệ.');return;}apply(draft);dialog.close();};
     find('layout-cancel').onclick=()=>dialog.close();
     return action=>{c=getConfiguration();draft=getPositions(c.count).map(p=>({...p}));selected=0;draw();message(`${draft.length} tấm · Mái rộng ${c.width} m × dài ${c.length} m. Tấm ${c.watts} W: ${module().length} × ${module().width} m; 3D áp dụng thêm độ nghiêng đã chọn.`);dialog.showModal();if(action==='add')find('layout-add').click();};
   };
