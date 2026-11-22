@@ -1,4 +1,16 @@
 const solTranslations = [
+  ['Chiều rộng nhà', 'House width'],
+  ['Mỗi tầng cao 3,2 m.', 'Each floor is 3.2 m tall.'],
+  ['Cài đặt', 'Settings'],
+  ['Cài đặt hiển thị', 'Display settings'],
+  ['Gợi ý bố trí pin cho cả năm', 'Suggest panel layout for the year'],
+  ['MÔ PHỎNG TRONG NĂM', 'YEAR SIMULATION'],
+  ['Chạy cả năm', 'Play year'],
+  ['Giữ giờ đang chọn', 'Keep selected time'],
+  ['Ngày mô phỏng trong năm', 'Simulation day of year'],
+  ['Cấu hình công suất, tấm pin, tọa độ và múi giờ sẽ được lưu trên trình duyệt này khi bạn bấm tính.', 'Power, panel, location and time zone settings are saved in this browser when you calculate.'],
+  ['Đã lưu cấu hình trên trình duyệt này. Lần mở sau tự tải dự báo mới cho hôm nay.', 'Settings saved in this browser. A fresh forecast will load on your next visit.'],
+  ['Trình duyệt không cho lưu cấu hình. Vẫn tính được nhưng lần mở sau cần nhập lại.', 'This browser cannot save settings. You can still calculate, but will need to enter them again next time.'],
   ['Cho phép vị trí để xem hướng nắng, thời tiết và dự đoán điện mặt trời tại nơi bạn đang đứng.', 'Allow location access to see sun directions, weather and solar energy estimates where you are.'],
   ['Tọa độ được gửi đến máy chủ để lấy dự báo thời tiết theo khu vực khoảng 2 km.', 'Coordinates are sent to the server to fetch weather forecasts for an area of approximately 2 km.'],
   ['Bấm Dùng vị trí của tôi để bắt đầu.', 'Select Use my location to get started.'],
@@ -171,8 +183,8 @@ const solTranslations = [
     "The sun is higher in the sky, not physically closer to you. The outer ring is about 0° (the horizon), halfway inward is about 45°, and the center is 90° (directly overhead). Look from the center toward the dot to find the sun. A gray dot on the rim means the sun is below the horizon."
   ],
   [
-    "NGÀY & ĐỊA ĐIỂM",
-    "DATE & LOCATION"
+    "NGÀY THÁNG",
+    "DATE"
   ],
   [
     "Ngày khám phá",

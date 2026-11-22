@@ -2,7 +2,7 @@
   if (!globalThis.isSolarCalculator) return;
   const canvas = $('panel-canvas'), ctx = canvas.getContext('2d'), G = PanelGeometry;
   let yaw = Math.PI-.6, pitch = .55, orbitKey = '', orbit = [], follow = false, previousHouse = 0, zoom = 1;
-  const controls = { length:$('house-length'), count:$('panel-count'), roof:$('roof-type'), bearing:$('panel-bearing'), tilt:$('panel-slope'), floors:$('panel-floors'), x:$('panel-x'), z:$('panel-z'), house:$('house-bearing'), left:$('neighbor-left'), right:$('neighbor-right'), leftRoof:$('neighbor-left-roof'), rightRoof:$('neighbor-right-roof') };
+  const controls = { width:$('house-width'), length:$('house-length'), count:$('panel-count'), roof:$('roof-type'), bearing:$('panel-bearing'), tilt:$('panel-slope'), floors:$('panel-floors'), x:$('panel-x'), z:$('panel-z'), house:$('house-bearing'), left:$('neighbor-left'), right:$('neighbor-right'), leftRoof:$('neighbor-left-roof'), rightRoof:$('neighbor-right-roof') };
   let placedPanels=null, initialized=false, lastSaved='', recommendationKey='';
   let savedState=null;
   try {savedState=PlannerState.load(localStorage);} catch {}
@@ -34,8 +34,8 @@
   }
   function getPositions(count,automatic=false) {
     const c=configuration();
-    if(!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length))return placedPanels;
-    const layout=G.panelLayout(count,c.bearing-c.house,0,0,0,0,c.length);
+    if(!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width))return placedPanels;
+    const layout=G.panelLayout(count,c.bearing-c.house,0,0,0,0,c.length,c.width);
     return layout.panels.map(p=>({x:(p[0][0]+p[2][0])/2,z:(p[0][2]+p[2][2])/2}));
   }
   const openLayout=createPanelLayoutEditor({getConfiguration:configuration,getPositions,apply:positions=>{
@@ -58,6 +58,7 @@
   }
   function labels() {
     const c = configuration();
+    $('house-width-label').textContent=`${c.width} m`;
     $('house-length-label').textContent=`${c.length} m`;
     $('panel-count-label').textContent=`${c.count} tấm`;
     $('panel-add').disabled=c.count>=12;
@@ -93,8 +94,8 @@
       $('energy-status').textContent = 'Thông số tấm pin đã đổi. Bấm tính để cập nhật sản lượng.';
       $('energy-preview').hidden = true;
     }
-    if(['count','bearing','length'].includes(key) && placedPanels) {
-      if(placedPanels.length!==Number(controls.count.value) || !G.validPlacement(placedPanels,configuration().bearing-configuration().house,configuration().length)) {placedPanels=null;$('panel-advice').textContent='Đã xếp lại pin để phù hợp kích thước hoặc hướng mới. Mở Sắp xếp từng tấm pin để chỉnh.';}
+    if(['count','bearing','length','width'].includes(key) && placedPanels) {
+      if(placedPanels.length!==Number(controls.count.value) || !G.validPlacement(placedPanels,configuration().bearing-configuration().house,configuration().length,configuration().width)) {placedPanels=null;$('panel-advice').textContent='Đã xếp lại pin để phù hợp kích thước hoặc hướng mới. Mở Sắp xếp từng tấm pin để chỉnh.';}
     }
     labels();render();
   });
@@ -111,7 +112,7 @@
   function manual() {follow=false;$('panel-follow').setAttribute('aria-pressed','false');}
   $('panel-follow').onclick=()=>{follow=true;$('panel-follow').setAttribute('aria-pressed','true');if(!globalThis.compassState?.active)$('sensor').click();render();};
   $('floor-add').onclick = () => { controls.floors.value = Math.min(3,Number(controls.floors.value)+1); labels();render(); };
-  async function optimize(annual = false) {
+  async function optimize(annual = false, layout = false) {
     if (!locationReady) { $('panel-advice').textContent='Cần GPS hoặc nhập tọa độ trước khi gợi ý.';return; }
     const year=Number($('date').value.slice(0,4));
     if (!Number.isInteger(year) || year<1) return;
@@ -124,11 +125,11 @@
         for(let time=15;time<1440;time+=30)samples.push({...Solar.position(date,time,lat,lon,offset),weight});
       }
     } else for(let time=15;time<1440;time+=30)samples.push(Solar.position($('date').value,time,lat,lon,offset));
-    $('panel-optimize').disabled=$('panel-optimize-year').disabled=true;
+    $('panel-optimize').disabled=$('panel-optimize-year').disabled=$('panel-layout-year').disabled=true;
     recommendationKey='';
     $('panel-advice').textContent='Đang so sánh góc pin theo vị trí từng tấm, hướng nhà và bóng che nhà bên…';
     try {
-      const search=G.recommendScene(samples,c,positions);
+      const search=G.recommendScene(samples,c,positions,layout);
       let result;
       do {
         for(let i=0;i<8;i++){result=search.next();if(result.done)break;}
@@ -138,35 +139,38 @@
       const best=result.value;
       if(best.score<=0) {$('panel-advice').textContent='Không tìm thấy ánh nắng trực tiếp đến pin trong khoảng mô phỏng này. Kiểm tra bóng che hoặc vị trí.';return;}
       globalThis.invalidateSolarPrediction?.();
-      placedPanels=positions;
+      placedPanels=best.positions || positions;
       controls.bearing.value = $('energy-azimuth').value = best.bearing;
       controls.tilt.value = $('energy-tilt').value = best.tilt;
       $('energy-result').hidden=true; $('energy-preview').hidden=true;
       $('energy-status').textContent='Đã áp dụng gợi ý theo mô phỏng. Bấm tính để cập nhật sản lượng.';
       const gain=best.baseline>0?`Chỉ số đón nắng hình học tăng khoảng ${Math.max(0,(best.score/best.baseline-1)*100).toFixed(1)}% so với cấu hình trước. `:'';
-      $('panel-advice').textContent=`Đã áp dụng gợi ý ${annual?'năm '+year:'ngày '+$('date').value}: hướng ${best.bearing}° từ Bắc, nghiêng ${best.tilt}°. Giữ vị trí từng tấm; đã xét hướng nhà và bóng che nhà bên, gồm mái Thái. ${gain}${annual?'Lấy mẫu 12 ngày giữa tháng, gia quyền theo số ngày từng tháng; ':''}Bước thời gian 30 phút, tìm góc thô rồi tinh chỉnh 5°, kiểm tra 36 ô/tấm. Đây là ước tính hình học, chưa xét thời tiết hoặc bóng che giữa các tấm; không phải mức tăng kWh.`;
+      $('panel-advice').textContent=`Đã áp dụng gợi ý ${annual?'năm '+year:'ngày '+$('date').value}: hướng ${best.bearing}° từ Bắc, nghiêng ${best.tilt}°. ${layout?'Đã tự xếp từng tấm trên mái, so sánh bố trí gom cụm và rời rạc để tránh bóng che; áp dụng phương án tốt nhất tìm được.':'Giữ vị trí từng tấm;'} đã xét hướng nhà và bóng che nhà bên, gồm mái Thái. ${gain}${annual?'Lấy mẫu 12 ngày giữa tháng, gia quyền theo số ngày từng tháng; ':''}Bước thời gian 30 phút, tìm góc thô rồi tinh chỉnh 5°, kiểm tra 36 ô/tấm. Đây là ước tính hình học, chưa xét thời tiết hoặc bóng che giữa các tấm; không phải mức tăng kWh.`;
       recommendationKey=simulationKey();
       labels();render();
     } catch {
       $('panel-advice').textContent='Không tính được gợi ý. Bố trí hiện tại được giữ nguyên; hãy thử lại.';
     } finally {
-      $('panel-optimize').disabled=$('panel-optimize-year').disabled=false;
+      $('panel-optimize').disabled=$('panel-optimize-year').disabled=$('panel-layout-year').disabled=false;
     }
   }
   $('panel-optimize').onclick=()=>optimize();
   $('panel-optimize-year').onclick=()=>optimize(true);
+  $('panel-layout-year').onclick=()=>optimize(true,true);
   // Manual coordinates keep the planner useful when GPS is denied.
   for (const id of ['lat','lon']) $(id).addEventListener('change',()=>{
     if (!['lat','lon'].every(key=>$(key).value!=='' && $(key).checkValidity())) return;
     lat=Number($('lat').value);lon=Number($('lon').value);locationReady=true;
     $('location-name').textContent='Tọa độ đã chọn';
     $('location-status').textContent='Đang sử dụng tọa độ nhập thủ công.';
+    globalThis.setGPSStatus?.('saved','Đang dùng tọa độ nhập thủ công. Bấm để lấy GPS.');
     refresh();
   });
   function bounds() {
     return { start:events?.rise ?? 0, end:events?.set ?? 1439 };
   }
   $('play').onclick = () => {
+    stopYear();
     if (playing) {stop();return;}
     if (!locationReady || !events?.daylight) return;
     const {start,end}=bounds();
@@ -177,8 +181,8 @@
   globalThis.onSolarDayChanged = () => {
     stop();
     const {start,end}=bounds();
-    minute=Math.max(start,Math.min(end,minute));
-    $('time').min=Math.floor(start);$('time').max=Math.ceil(end);
+    if (!yearAdvancing) minute=Math.max(start,Math.min(end,minute));
+    $('time').min=0;$('time').max=1439;
     $('play').disabled=!events?.daylight;
     document.querySelector('.time-ticks').textContent=events?.daylight===0 ? 'Không có ánh sáng ban ngày' : events?.daylight===1440 ? 'Mặt trời không lặn · 00:00 — 23:59' : `Mọc ${fmt(events.rise)} — Lặn ${fmt(events.set)}`;
     $('panel-advice').textContent='Gợi ý áp dụng cho ngày và vị trí đang chọn. Bấm gợi ý để tính lại.';
@@ -194,7 +198,7 @@
     $('panel-view-status').textContent=follow ? (globalThis.compassState?.ready ? '3D đang xoay theo la bàn thiết bị.' : 'Bấm Theo la bàn thiết bị để bật; xem trạng thái ở nhóm La bàn thiết bị.') : '3D đang xoay bằng tay. Hướng nhà không đổi khi xoay góc nhìn.';
     const c=configuration(), width=canvas.clientWidth, height=canvas.clientHeight;
     if (!width || !height) return;
-    const dpr=Math.min(window.devicePixelRatio||1,2);
+    const dpr=Math.min(window.devicePixelRatio||1,globalThis.lowRenderQuality?1:2);
     canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
     const dark=document.documentElement.dataset.theme==='dark';
@@ -221,17 +225,17 @@
     const points=localModules.flat();
     const minX=Math.min(...points.map(p=>p[0])),maxX=Math.max(...points.map(p=>p[0]));
     const minZ=Math.min(...points.map(p=>p[2])),maxZ=Math.max(...points.map(p=>p[2]));
-    controls.x.min=-4-minX;controls.x.max=4-maxX;
+    controls.x.min=-c.width/2-minX;controls.x.max=c.width/2-maxX;
     controls.z.min=maxZ-c.length/2;controls.z.max=minZ+c.length/2;
     const shiftX=Math.max(Number(controls.x.min),Math.min(Number(controls.x.max),c.x));
     const shiftZ=-Math.max(Number(controls.z.min),Math.min(Number(controls.z.max),c.z));
     controls.x.value=shiftX;controls.z.value=-shiftZ;
     const modules=localModules.map(p=>p.map(([x,y,z])=>rotate([x+shiftX,y,z+shiftZ]))),panel=modules[0];
-    const neighbors=G.neighbors(c.left,c.right,c.length,c.leftRoof,c.rightRoof);
-    const buildings=[{x:0,z:0,width:8,depth:c.length,height:buildingHeight,main:true,thai:c.roof},...neighbors];
-    const buildingRoof=b=>[[b.x-4,b.height,-b.depth/2],[b.x+4,b.height,-b.depth/2],[b.x+4,b.height,b.depth/2],[b.x-4,b.height,b.depth/2]].map(rotate);
+    const neighbors=G.neighbors(c.left,c.right,c.length,c.leftRoof,c.rightRoof,c.width);
+    const buildings=[{x:0,z:0,width:c.width,depth:c.length,height:buildingHeight,main:true,thai:c.roof},...neighbors];
+    const buildingRoof=b=>[[b.x-b.width/2,b.height,-b.depth/2],[b.x+b.width/2,b.height,-b.depth/2],[b.x+b.width/2,b.height,b.depth/2],[b.x-b.width/2,b.height,b.depth/2]].map(rotate);
     const roofFaces=buildings.filter(b=>b.thai).flatMap(b=>{
-      const left=b.x-4.5,right=b.x+4.5,end=b.depth/2+.5,h=b.height;
+      const left=b.x-b.width/2-.5,right=b.x+b.width/2+.5,end=b.depth/2+.5,h=b.height;
       return [
         [[left,h,-end],[b.x,h+3,-end],[b.x,h+3,end],[left,h,end]],
         [[b.x,h+3,-end],[right,h,-end],[right,h,end],[b.x,h+3,end]],
@@ -246,7 +250,17 @@
       const key=`${$('date').value},${lat},${lon},${offset}`;
       if(key!==orbitKey){orbitKey=key;orbit=Array.from({length:145},(_,i)=>Solar.position($('date').value,i*10,lat,lon,offset)).filter(s=>s.altitude>=0).map(s=>G.vector(s.azimuth,s.altitude).map(v=>v*30));}
 
-      if(sun.altitude>1){buildings.forEach(b=>polygon(G.shadow(buildingRoof(b),sun),'#23382c22','transparent'));roofFaces.forEach(face=>polygon(G.shadow(face,sun),'#23382c22','transparent'));modules.forEach(points=>polygon(G.shadow(points,sun),'#183c3640','transparent'));}
+      if(sun.altitude>0) {
+        ctx.beginPath();
+        for (const face of [...buildings.map(buildingRoof), ...roofFaces, ...modules]) {
+          const points=G.shadow(face,sun).map(project);
+          // Consistent winding keeps overlapping silhouettes filled as a union.
+          const area=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p[0]*q[1]-q[0]*p[1];},0);
+          if(area<0)points.reverse();
+          points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();
+        }
+        ctx.fillStyle=dark?'#071911b3':'#1a302b80';ctx.fill();
+      }
       const incidence=G.incidence(sun,c.bearing,c.tilt);
       $('panel-incidence').textContent=`${Math.round(incidence*100)}%`;
       $('panel-angle').textContent=sun.altitude>0?`${G.angle(sun,c.bearing,c.tilt).toFixed(1)}°`:'Dưới chân trời';
@@ -285,7 +299,7 @@
         if(blocked)shaded++;
         faces.push({p:[at(col/6,row/6),at((col+1)/6,row/6),at((col+1)/6,(row+1)/6),at(col/6,(row+1)/6)],color:blocked?'#142c3b':`hsl(204 43% ${24+light*24}%)`,stroke:'#81b1c2'});
       }
-      for(const post of G.supports(module,buildingHeight,c.roof,c.house))faces.push({p:post,stroke:'#738887'});
+      for(const post of G.supports(module,buildingHeight,c.roof,c.house,c.width))faces.push({p:post,stroke:'#738887'});
     }
     surface.width=Math.round(width*dpr);surface.height=Math.round(height*dpr);
     const pixels=DepthRenderer.rasterize(surface.width,surface.height,faces,p=>{const v=project(p);return [v[0]*dpr,v[1]*dpr,v[2]];},colorOf);
@@ -322,7 +336,6 @@
     $('panel-zoom-in').disabled=zoom>=4;
     render();
   }
-  function resetView(){manual();yaw=Math.PI-.6+Number(controls.house.value)*R;pitch=.55;setZoom(1);}
   const distance=()=>{const [a,b]=[...pointers.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
   canvas.addEventListener('pointerdown',e=>{
@@ -339,14 +352,12 @@
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>pointers.delete(e.pointerId));
   canvas.addEventListener('wheel',e=>{e.preventDefault();setZoom(zoom*Math.exp(-Math.max(-100,Math.min(100,e.deltaY))*.003));},{passive:false});
   canvas.addEventListener('keydown',e=>{
-    if(['+','=','-','f','F'].includes(e.key)){e.preventDefault();if(e.key.toLowerCase()==='f')resetView();else setZoom(zoom*(e.key==='-'?1/1.2:1.2));return;}
+    if(['+','=','-'].includes(e.key)){e.preventDefault();setZoom(zoom*(e.key==='-'?1/1.2:1.2));return;}
     if(!e.key.startsWith('Arrow'))return;e.preventDefault();manual();yaw+=e.key==='ArrowLeft'?-.15:e.key==='ArrowRight'?.15:0;pitch=Math.max(.05,Math.min(Math.PI/2,pitch+(e.key==='ArrowUp'?.1:e.key==='ArrowDown'?-.1:0)));render();
   });
   $('panel-zoom-in').onclick=()=>setZoom(zoom*1.2);
   $('panel-zoom-out').onclick=()=>setZoom(zoom/1.2);
   $('panel-view-front').onclick=()=>{manual();yaw=Math.PI+Number(controls.house.value)*R;pitch=.15;render();};
-  $('panel-view-top').onclick=()=>{manual();yaw=0;pitch=Math.PI/2;render();};
-  $('panel-reset').onclick=resetView;
   manual();
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
   new ResizeObserver(render).observe(canvas);
@@ -372,6 +383,7 @@
     setCurrentTime();locationReady=true;
     $('location-name').textContent='Vị trí mô phỏng đã lưu';
     $('location-status').textContent='Đã khôi phục vị trí và cấu hình mô phỏng trên trình duyệt này.';
+    globalThis.setGPSStatus?.('saved','Đang dùng vị trí đã lưu. Bấm để lấy GPS hiện tại.');
     $('feedback').textContent='Có thể chỉnh tọa độ trong cài đặt hoặc dùng GPS để cập nhật vị trí.';
     $('location-retry').hidden=false;$('location-retry').textContent='Dùng vị trí hiện tại';
     refresh();return true;

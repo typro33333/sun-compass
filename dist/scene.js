@@ -19,7 +19,7 @@
     if (!locationReady) { $('scene-status').textContent = 'Đang chờ vị trí'; return; }
     const width = canvas.clientWidth, height = canvas.clientHeight;
     if (!width || !height) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, globalThis.lowRenderQuality ? 1 : 2);
     if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
       canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
     }
@@ -46,7 +46,7 @@
     const key = `${$('date').value},${lat},${lon},${offset}`;
     if (key !== pathKey) {
       pathKey = key;
-      orbit = Array.from({length: 241}, (_,i) => Solar.position($('date').value,i*6,lat,lon,offset));
+      orbit = Array.from({length: globalThis.lowRenderQuality ? 81 : 241}, (_,i) => Solar.position($('date').value,i*(globalThis.lowRenderQuality ? 18 : 6),lat,lon,offset));
     }
     let segment = [];
     for (const p of orbit) {

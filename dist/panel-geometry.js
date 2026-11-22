@@ -20,11 +20,11 @@
     const center = [x,height + .35 + depth/2*Math.sin(t),z];
     return [[-width/2,-depth/2],[width/2,-depth/2],[width/2,depth/2],[-width/2,depth/2]].map(([u,v]) => center.map((c,i)=>c+u*right[i]+v*uphill[i]));
   }
-  function panelLayout(count, bearing, tilt, height, x, z, length) {
+  function panelLayout(count, bearing, tilt, height, x, z, length, width = 8) {
     const columns=Math.min(4,Math.ceil(Math.sqrt(count))), rows=Math.ceil(count/columns);
     let outline=corners(bearing,tilt,height,0,0,columns*1.2,rows*2);
     const extent=axis=>Math.max(...outline.map(p=>Math.abs(p[axis])));
-    const limitX=Math.max(0,4-extent(0)), limitZ=Math.max(0,length/2-extent(2));
+    const limitX=Math.max(0,width/2-extent(0)), limitZ=Math.max(0,length/2-extent(2));
     x=Math.max(-limitX,Math.min(limitX,x));z=Math.max(-limitZ,Math.min(limitZ,z));
     outline=outline.map(p=>[p[0]+x,p[1],p[2]+z]);
     const at=(u,v)=>outline[0].map((p,i)=>p+(outline[1][i]-p)*u+(outline[3][i]-p)*v);
@@ -34,13 +34,13 @@
     });
     return {outline,panels,x,z,limitX,limitZ};
   }
-  function roofHeight(x, height, thai) {
-    return height + (thai ? 3 * Math.max(0, 1 - Math.abs(x) / 4.5) : 0);
+  function roofHeight(x, height, thai, width = 8) {
+    return height + (thai ? 3 * Math.max(0, 1 - Math.abs(x) / (width/2+.5)) : 0);
   }
-  function supports(panel, height, thai, bearing) {
+  function supports(panel, height, thai, bearing, width = 8) {
     return panel.map(top=>{
       const local=rotate(top,-bearing);
-      return [[top[0],roofHeight(local[0],height,thai),top[2]],top];
+      return [[top[0],roofHeight(local[0],height,thai,width),top[2]],top];
     });
   }
   function shadow(points, sun) {
@@ -52,9 +52,9 @@
     const a=bearing*rad;
     return [x*Math.cos(a)-z*Math.sin(a),y,x*Math.sin(a)+z*Math.cos(a)];
   }
-  function neighbors(left, right, depth = 10, leftRoof = false, rightRoof = false) {
-    // Two 8 m wide houses touch the 8 m wide central house at x = ±4.
-    return [{x:-8,z:0,width:8,depth,height:left*3.2,thai:!!leftRoof},{x:8,z:0,width:8,depth,height:right*3.2,thai:!!rightRoof}].filter(b=>b.height>0);
+  function neighbors(left, right, depth = 10, leftRoof = false, rightRoof = false, centralWidth = 8) {
+    // Neighbor houses remain 8 m wide and touch the central house.
+    return [{x:-(centralWidth/2+4),z:0,width:8,depth,height:left*3.2,thai:!!leftRoof},{x:centralWidth/2+4,z:0,width:8,depth,height:right*3.2,thai:!!rightRoof}].filter(b=>b.height>0);
   }
   function occluders(buildings) {
     return buildings.flatMap(({x,z,width,depth,height,thai})=>{
@@ -84,9 +84,9 @@
   function individualPanels(positions,bearing,tilt,height) {
     return positions.map(({x,z})=>corners(bearing,tilt,height,x,z,1.18,1.96));
   }
-  function validPlacement(positions,bearing,length) {
+  function validPlacement(positions,bearing,length,width = 8) {
     const polygons=individualPanels(positions,bearing,0,0);
-    if(polygons.some(p=>p.some(([x,,z])=>Math.abs(x)>4+1e-8 || Math.abs(z)>length/2+1e-8)))return false;
+    if(polygons.some(p=>p.some(([x,,z])=>Math.abs(x)>width/2+1e-8 || Math.abs(z)>length/2+1e-8)))return false;
     for(let i=0;i<polygons.length;i++)for(let j=0;j<i;j++) {
       const a=polygons[i],b=polygons[j];
       const separate=[...a,...b].some((p,k,all)=>{
@@ -124,13 +124,13 @@
   }
   // Incremental search lets the UI yield while evaluating the current scene.
   // Keep each panel's center fixed; reject rotations that break the layout.
-  function* recommendScene(samples,config,positions) {
-    const c=config, height=(c.floors+1)*3.2+(c.roof?3:0);
-    const volumes=occluders(neighbors(c.left,c.right,c.length,c.leftRoof,c.rightRoof));
+  function* recommendScene(samples,config,positions,layout = false) {
+    const c={width:8,...config}, height=(c.floors+1)*3.2+(c.roof?3:0);
+    const volumes=occluders(neighbors(c.left,c.right,c.length,c.leftRoof,c.rightRoof,c.width));
     const rays=samples.filter(s=>s.altitude>0).map(s=>({world:vector(s.azimuth,s.altitude),local:rotate(vector(s.azimuth,s.altitude),-c.house),weight:s.weight??1}));
-    function score(bearing,tilt,grid) {
+    function score(bearing,tilt,grid,placement = positions) {
       const normal=vector(bearing,90-tilt);
-      const panels=individualPanels(positions,bearing-c.house,tilt,height);
+      const panels=individualPanels(placement,bearing-c.house,tilt,height);
       const points=panels.flatMap(p=>Array.from({length:grid*grid},(_,i)=>{
         const u=(i%grid+.5)/grid,v=(Math.floor(i/grid)+.5)/grid;
         return p[0].map((n,k)=>n+(p[1][k]-n)*u+(p[3][k]-n)*v+(k===0?c.x:k===2?-c.z:0));
@@ -151,9 +151,9 @@
       bearing=(bearing+360)%360;tilt=Math.max(0,Math.min(90,tilt));
       const key=bearing+','+tilt;
       if(seen.has(key))return;seen.add(key);
-      if(!validPlacement(positions,bearing-c.house,c.length))return;
+      if(!validPlacement(positions,bearing-c.house,c.length,c.width))return;
       const shifted=positions.map(p=>({x:p.x+c.x,z:p.z-c.z}));
-      if(!validPlacement(shifted,bearing-c.house,c.length))return;
+      if(!validPlacement(shifted,bearing-c.house,c.length,c.width))return;
       candidates.push({bearing,tilt,score:score(bearing,tilt,2)});
     }
     candidate(c.bearing,c.tilt);
@@ -169,6 +169,65 @@
       const result={...option,score:score(option.bearing,option.tilt,6)};
       if(result.score>best.score+1e-9)best=result;
       yield;
+    }
+    if (layout) {
+      best={...best,positions:positions.map(p=>({...p}))};
+      const automatic=panelLayout(positions.length,best.bearing-c.house,0,0,0,0,c.length,c.width).panels.map(p=>({x:(p[0][0]+p[2][0])/2,z:(p[0][2]+p[2][2])/2}));
+      // Compare the current pattern and a regular grid across the available roof.
+      for (const base of [positions,automatic]) {
+        const corners=individualPanels(base,best.bearing-c.house,0,0).flat();
+        const minX=-c.width/2-Math.min(...corners.map(p=>p[0]))-c.x,maxX=c.width/2-Math.max(...corners.map(p=>p[0]))-c.x;
+        const minZ=-c.length/2-Math.min(...corners.map(p=>p[2]))+c.z,maxZ=c.length/2-Math.max(...corners.map(p=>p[2]))+c.z;
+        for(let ix=0;ix<=4;ix++)for(let iz=0;iz<=4;iz++) {
+          const next=base.map(p=>({x:p.x+minX+(maxX-minX)*ix/4,z:p.z+minZ+(maxZ-minZ)*iz/4}));
+          if(validPlacement(next,best.bearing-c.house,c.length,c.width) && validPlacement(next.map(p=>({x:p.x+c.x,z:p.z-c.z})),best.bearing-c.house,c.length,c.width)) {
+            const value=score(best.bearing,best.tilt,6,next);
+            if(value>best.score+1e-9)best={...best,positions:next,score:value};
+          }
+          yield;
+        }
+      }
+    }
+    if (layout && rays.length) {
+      const bearing=best.bearing,tilt=best.tilt;
+      const footprint=individualPanels([{x:0,z:0}],bearing-c.house,0,0)[0];
+      const ex=Math.max(...footprint.map(p=>Math.abs(p[0]))),ez=Math.max(...footprint.map(p=>Math.abs(p[2])));
+      const spots=[];
+      const step=.5;
+      for(let x=-c.width/2+ex;x<=c.width/2-ex+1e-8;x+=step) {
+        for(let z=-c.length/2+ez;z<=c.length/2-ez+1e-8;z+=step) {
+          const p={x:x-c.x,z:z+c.z};
+          if(!validPlacement([p],bearing-c.house,c.length,c.width))continue;
+          spots.push({p,value:score(bearing,tilt,3,[p])});
+        }
+        yield;
+      }
+      spots.sort((a,b)=>b.value-a.value || Math.hypot(a.p.x,a.p.z)-Math.hypot(b.p.x,b.p.z));
+      // Try multiple seeds so the first panel does not force a single cluster.
+      for(let seed=0;seed<Math.min(8,spots.length);seed++) {
+        const next=[spots[seed].p];
+        for(const spot of spots) {
+          if(next.length===positions.length)break;
+          if(validPlacement([...next,spot.p],bearing-c.house,c.length,c.width))next.push(spot.p);
+        }
+        if(next.length===positions.length) {
+          const value=score(bearing,tilt,6,next);
+          if(value>best.score+1e-9)best={...best,positions:next.map(p=>({...p})),score:value};
+        }
+        yield;
+      }
+      // Also relocate individual panels from the best complete layout; keep improvements only.
+      for(let i=0;i<positions.length;i++) {
+        const rest=best.positions.filter((_,j)=>j!==i);
+        for(const spot of spots) {
+          if(!validPlacement([...rest,spot.p],bearing-c.house,c.length,c.width))continue;
+          const next=best.positions.map((p,j)=>j===i?spot.p:p);
+          const value=score(bearing,tilt,6,next);
+          if(value>best.score+1e-9)best={...best,positions:next.map(p=>({...p})),score:value};
+          break;
+        }
+        yield;
+      }
     }
     return {...best,baseline:current.score};
   }

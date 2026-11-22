@@ -4,15 +4,18 @@ const assert = require('node:assert/strict');
 const nodes = new Map();
 const $ = id => { if (!nodes.has(id)) nodes.set(id, { setAttribute() {} }); return nodes.get(id); };
 const listeners = new Map();
-let permissionArgument, clock = 10000;
+let permissionArgument, clock = 10000, frameCallback;
+const flush = () => { const fn = frameCallback; frameCallback = null; if (fn) fn(clock); };
 const window = { isSecureContext: true, screen: { orientation: { angle: 0, addEventListener() {}, removeEventListener() {} } }, DeviceOrientationEvent: { async requestPermission(absolute) { permissionArgument = absolute; return 'granted'; } }, addEventListener(type, fn) { listeners.set(type, fn); }, removeEventListener(type) { listeners.delete(type); } };
-const context = { $, window, Date: { now: () => clock }, heading: 0, direction: () => 'B', draw() {}, setTimeout: () => 1, clearTimeout() {}, requestAnimationFrame: () => 1, cancelAnimationFrame() {} };
+const context = { $, window, Date: { now: () => clock }, heading: 0, direction: () => 'B', draw() {}, setTimeout: () => 1, clearTimeout() {}, requestAnimationFrame: fn => { frameCallback = fn; return 1; }, cancelAnimationFrame() {} };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(require.resolve('../dist/sensor.js'), 'utf8'), context);
 (async () => {
   await $('sensor').onclick();
   assert.equal(permissionArgument, true);
   listeners.get('deviceorientation')({ webkitCompassHeading: 90, webkitCompassAccuracy: 5 });
+  assert.equal(context.heading, 0, 'No heading mutation before animation frame');
+  flush();
   assert.equal(context.heading, 90);
   const stableStatus = $('sensor-status').textContent;
   listeners.get('deviceorientation')({ absolute: false, alpha: 120 });
@@ -22,9 +25,25 @@ vm.runInContext(fs.readFileSync(require.resolve('../dist/sensor.js'), 'utf8'), c
   clock += 4000;
   window.screen.orientation.angle = 90;
   listeners.get('deviceorientationabsolute')({ type: 'deviceorientationabsolute', alpha: 0 });
+  flush();
   assert.equal(context.heading, 270);
   listeners.get('deviceorientation')({ absolute: false, alpha: 120 });
   assert.equal(context.heading, 270, 'Do not treat relative orientation as north');
+  // Reset to a heading near north, then cross 360° without spinning the long way.
+  window.screen.orientation.angle = 0;
+  listeners.get('orientationchange')();
+  listeners.get('deviceorientationabsolute')({ type: 'deviceorientationabsolute', alpha: 1 });
+  flush();
+  assert.equal(context.heading, 359);
+  for (let i=0; i<100; i++) listeners.get('deviceorientationabsolute')({ type: 'deviceorientationabsolute', alpha: 359 });
+  assert.equal(context.heading, 359, 'Burst events do not mutate visible heading');
+  clock += 16; flush();
+  assert(context.heading > 359 && context.heading < 360, 'Circular smoothing follows shortest arc');
+  // Restore the landscape heading for the stop/hold assertions.
+  window.screen.orientation.angle = 90;
+  listeners.get('orientationchange')();
+  listeners.get('deviceorientationabsolute')({ type: 'deviceorientationabsolute', alpha: 0 });
+  flush();
   await $('sensor').onclick();
   assert.equal(context.heading, 270, 'Turning the sensor off must preserve the last heading');
   assert.match($('heading-label').textContent, /270°.*Giữ hướng/);

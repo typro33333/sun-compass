@@ -12,5 +12,7 @@ context.heading=180;context.renderSolarScene();assert.equal(labels.get('Bắc').
 assert.equal($('scene-follow').attrs['aria-pressed'],'false');
 $('scene-follow').onclick();assert(Math.abs(labels.get('Bắc').x-200)<.01);assert.equal($('scene-follow').attrs['aria-pressed'],'true');
 context.compassState.ready=false;context.renderSolarScene();assert.match($('scene-mode').textContent,/khi bật/);
+context.window.devicePixelRatio=3; context.lowRenderQuality=true; context.renderSolarScene();
+assert.equal($('sun-canvas').width,400,'Low quality caps canvas DPR at one');
 $('view-2d').onclick();assert.equal($('wrap').hidden,false);
 console.log('3D compass checks passed: heading alignment, manual override, follow resume and sensor-off state.');

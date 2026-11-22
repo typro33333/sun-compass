@@ -1,5 +1,6 @@
 (() => {
   let active = false, pending = false, timer, frame, lastEvent;
+  let target = null, lastFrameAt = null, resetFilter = true;
   let source = null, lastValidAt = 0, tilted = false, lastStatus = '';
   const state = globalThis.compassState = { active: false, ready: false };
   const status = message => { if (message !== lastStatus) { lastStatus = message; $('sensor-status').textContent = message; } };
@@ -12,13 +13,25 @@
     window.screen?.orientation?.removeEventListener('change', screenChanged);
     clearTimeout(timer);
     if (frame) cancelAnimationFrame(frame);
-    frame = null; lastEvent = null;
+    frame = null; lastEvent = null; target = null; lastFrameAt = null; resetFilter = true;
     $('sensor').textContent = 'Bật la bàn thiết bị';
     $('sensor').setAttribute('aria-pressed', 'false');
     $('heading-label').textContent = `↑ ${Math.round(heading)}° ${direction(heading)} · Giữ hướng`;
     status(message); draw();
   }
-  function screenChanged() { if (lastEvent) orientation(lastEvent); }
+  function screenChanged() { resetFilter = true; if (lastEvent) orientation(lastEvent); }
+  function paint(timestamp) {
+    frame = null;
+    if (!active || target === null) return;
+    const dt = lastFrameAt === null ? 16 : Math.min(100, timestamp - lastFrameAt);
+    lastFrameAt = timestamp;
+    const delta = ((target - heading + 540) % 360) - 180;
+    if (resetFilter) { heading = target; resetFilter = false; }
+    else if (Math.abs(delta) > 0.4) heading = (heading + delta * (1 - Math.exp(-dt / 100)) + 360) % 360;
+    $('heading-label').textContent = `↑ ${Math.round(heading)}° ${direction(heading)}`;
+    draw();
+    if (Math.abs(((target - heading + 540) % 360) - 180) > 0.4) frame = requestAnimationFrame(paint);
+  }
   function orientation(event) {
     if (!active) return;
     const apple = Number.isFinite(event.webkitCompassHeading) && event.webkitCompassHeading >= 0;
@@ -34,14 +47,14 @@
       status('Cảm biến chưa hiệu chỉnh. Đưa máy xa kim loại và di chuyển nhẹ theo hình số 8.');
       return;
     }
+    if (source !== incomingSource) resetFilter = true;
     source = incomingSource; lastValidAt = Date.now(); state.ready = true;
     lastEvent = event;
     clearTimeout(timer);
     const raw = apple ? event.webkitCompassHeading : 360 - event.alpha;
     const angle = window.screen?.orientation?.angle ?? (Number.isFinite(window.orientation) ? window.orientation : 0);
     // The top of a landscape screen is rotated from the device's natural top.
-    heading = ((raw - angle) % 360 + 360) % 360;
-    $('heading-label').textContent = `↑ ${Math.round(heading)}° ${direction(heading)}`;
+    target = ((raw - angle) % 360 + 360) % 360;
     $('sensor').textContent = 'Tắt la bàn';
     if (Number.isFinite(event.beta) && Number.isFinite(event.gamma)) {
       const inclination = Math.max(Math.abs(event.beta), Math.abs(event.gamma));
@@ -49,7 +62,7 @@
       else if (inclination < 30) tilted = false;
     }
     status(tilted ? 'Đã nhận cảm biến. Hãy giữ máy nằm phẳng để đọc hướng chính xác hơn.' : 'La bàn đang hoạt động · Xoay máy nằm phẳng để thấy các hướng đổi theo bạn.');
-    if (!frame) frame = requestAnimationFrame(() => { frame = null; draw(); });
+    if (!frame) frame = requestAnimationFrame(paint);
     timer = setTimeout(() => stopSensor('Cảm biến đã ngừng gửi dữ liệu. Bấm bật lại; nếu vẫn lỗi, mở trang trực tiếp bằng Safari/Chrome.'), 8000);
   }
   $('sensor').onclick = async () => {

@@ -26,11 +26,11 @@ function node(id) {
   return nodes.get(id);
 }
 for (const match of html.matchAll(/id="([^"]+)"[^>]*?(?:value="([^"]*)")?[^>]*>/g)) node(match[1]);
-for (const [id,value] of Object.entries({'energy-kwp':'11','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','house-length':'10','panel-count':'6','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
-let gpsSuccess,exportedBlob;
+for (const [id,value] of Object.entries({'energy-kwp':'11','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','house-width':'8','house-length':'10','panel-count':'6','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
+let gpsSuccess,gpsFailure,exportedBlob;
 const context = { document:{ body:node('body'),documentElement:node('html'),cookie:'',hidden:false,createElement:node,createElementNS:(ns,tag)=>node(tag),getElementById:node,querySelector:node,addEventListener(){} },
   localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},sessionStorage:{getItem:()=>null,setItem(){}},location:{protocol:'https:',pathname},
-  navigator:{geolocation:{getCurrentPosition(success){gpsSuccess=success;}}},
+  navigator:{geolocation:{getCurrentPosition(success,failure){gpsSuccess=success;gpsFailure=failure;}}},
   matchMedia:()=>({matches:false,addEventListener(){}}),isSecureContext:true,
   addEventListener(){},removeEventListener(){},MutationObserver:class{observe(){}disconnect(){}},ResizeObserver:class{observe(){}},
   setInterval:fn=>{timers.push(fn);return timers.length;},clearInterval(){},setTimeout,clearTimeout,Date,Math,URLSearchParams,AbortController,AbortSignal,Response,DOMException,
@@ -61,7 +61,12 @@ if(reloadOnly) {
   return storage;
 }
 assert.equal(typeof gpsSuccess,'function','Startup must request GPS automatically');
+gpsFailure({code:1});
+assert.equal(node('header-gps').dataset.state,'error');
+node('header-gps').onclick();
+assert.equal(node('header-gps').dataset.state,'pending');
 gpsSuccess({coords:{latitude:10.8231,longitude:106.6297,accuracy:10}});
+assert.equal(node('header-gps').dataset.state,'success');
 assert.match(node('rise-time').textContent,/\d{2}:\d{2}/);
 assert.match(node('set-time').textContent,/\d{2}:\d{2}/);
 node('time').input({target:{value:'600'}});
@@ -84,7 +89,7 @@ if (pathname === '/sol-calculartor') {
     assert.equal(Number(node('neighbor-'+side).value),5);
     assert.equal(node('neighbor-'+side+'-add').disabled,true);
   }
-  node('panel-reset').onclick();
+  node('panel-view-front').onclick();
   assert.equal(node('panel-follow').attrs['aria-pressed'],'false');
   context.compassState.active=true;context.compassState.ready=true;
   node('panel-follow').onclick();
@@ -92,6 +97,23 @@ if (pathname === '/sol-calculartor') {
   assert.match(node('panel-view-status').textContent,/đang xoay theo/);
   node('date').value='2026-06-21';node('date').change();
   const juneRise=node('rise-time').textContent;
+  node('date').value='2024-01-01';node('date').change();
+  assert.equal(Number(node('year-day').max),366);
+  const heldTime=node('time').value;
+  node('year-day').input({target:{value:'60'}});
+  assert.equal(node('date').value,'2024-02-29');
+  assert.equal(node('time').value,heldTime,'Annual simulation preserves selected clock time');
+  node('year-day').input({target:{value:'366'}});
+  assert.equal(node('date').value,'2024-12-31');
+  node('year-play').onclick();
+  assert.equal(node('date').value,'2024-01-01','Restart annual playback at year start');
+  timers[timers.length-1]();
+  assert.equal(node('date').value,'2024-01-04');
+  assert.equal(node('year-play').attrs['aria-pressed'],'true','Refresh must not stop annual playback');
+  node('play').onclick();
+  assert.equal(node('year-play').attrs['aria-pressed'],'false','Daily playback stops annual playback');
+
+  node('date').value='2026-06-21';node('date').change();
   node('month').value='12';node('month').input();
   assert.match(node('date').value,/2026-12-21/);
   assert.notEqual(node('rise-time').textContent,juneRise,'Month must update sunrise on calculator');
@@ -102,15 +124,16 @@ if (pathname === '/sol-calculartor') {
   assert.equal(node('panel-zoom-in').disabled,true);
   for(let i=0;i<30;i++)node('panel-zoom-out').onclick();
   assert.equal(node('panel-zoom-label').textContent,'50%');
-  node('panel-reset').onclick();
-  assert.equal(node('panel-zoom-label').textContent,'100%');
+  const beforePinch=parseInt(node('panel-zoom-label').textContent);
   node('panel-canvas').pointerdown({pointerType:'touch',pointerId:1,clientX:0,clientY:0});
   node('panel-canvas').pointerdown({pointerType:'touch',pointerId:2,clientX:100,clientY:0});
   node('panel-canvas').pointermove({pointerId:2,clientX:200,clientY:0});
-  assert.equal(node('panel-zoom-label').textContent,'200%');
+  assert.equal(node('panel-zoom-label').textContent,`${beforePinch*2}%`);
   node('panel-canvas').pointercancel({pointerId:1});
   node('panel-canvas').pointerup({pointerId:2});
-  node('panel-view-front').onclick();node('panel-view-top').onclick();
+  node('panel-view-front').onclick();
+  node('house-width').value='14';node('house-width').input();
+  assert.equal(node('house-width-label').textContent,'14 m');
   node('house-length').value='30';node('house-length').input();
   assert.equal(node('house-length-label').textContent,'30 m');
   assert.equal(node('date-controls').hidden,true);

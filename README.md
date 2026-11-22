@@ -57,7 +57,7 @@ Dự báo bức xạ đã phản ánh mây trong mô hình, không nhân thêm h
 
 ## Cấu hình lưu trên trình duyệt
 
-Khi bấm tính sản lượng, cookie `sol_pv_profile` lưu kWp, hao hụt, độ nghiêng, hướng tấm pin, tọa độ và múi giờ trong 1 năm (`SameSite=Lax`, `Secure` trên HTTPS). Lần mở lại sẽ khôi phục cấu hình và tự tải dự báo cho ngày hiện tại, kể cả khi mở vào tháng khác; không tái sử dụng sản lượng cũ. Kết quả xuất hiện trên trang chính. Đổi tọa độ sẽ cập nhật cấu hình và tính lại. Cookie bị xóa/hết hạn hoặc trình duyệt chặn lưu thì cần nhập lại. Cấu hình thuộc trình duyệt và miền hiện tại, không đồng bộ giữa thiết bị.
+Khi bấm tính sản lượng, localStorage `sol_pv_profile` lưu kWp, hao hụt, độ nghiêng, hướng pin, tọa độ và múi giờ. Cookie cấu hình cũ được chuyển tự động khi mở trang và chỉ xóa sau khi lưu thành công. Cấu hình giữ đến khi người dùng xóa dữ liệu trình duyệt, không đồng bộ giữa thiết bị. Lần mở lại tải dự báo mới; nếu trình duyệt chặn lưu, ứng dụng báo lỗi và vẫn cho tính với cấu hình hiện tại.
 
 ## Góc nhìn 3D thử nghiệm
 
@@ -276,3 +276,15 @@ Cạnh nhãn **Bắc = 0°** ở tiêu đề mô hình, icon tải xuống **Sao
 Icon tải lên **Khôi phục profile từ file** đọc file JSON, kiểm tra định dạng/phiên bản và thông số trước khi thay mô phỏng hiện tại, rồi tự lưu trên trình duyệt. File sai định dạng, vượt 64 KB, vị trí pin chồng lấn/vượt mái hoặc thông số không hợp lệ bị từ chối; cấu hình hiện có được giữ nguyên. Khôi phục thay cấu hình hiện tại, nên xuất bản sao trước nếu cần giữ phương án cũ. File không có tọa độ sẽ giữ vị trí đang dùng. Tọa độ trong file là vị trí mô phỏng, nên chỉ chia sẻ file khi muốn chia sẻ cả vị trí đó.
 
 Nút cài đặt mô phỏng dùng icon bánh răng ở góc canvas. Các icon cài đặt/sao lưu/khôi phục giữ nhãn trợ năng và chú thích khi rê chuột, vùng bấm 44 px.
+
+### Compass, cache và kiểm chứng mặt trời
+
+- Compass chỉ cập nhật góc/nhãn trong `requestAnimationFrame`, gộp các sự kiện trong cùng khung hình. Bộ lọc vòng tròn có hằng số thời gian 100 ms và vùng chết 0,4°, tránh nhảy khi qua hướng Bắc. Đổi nguồn cảm biến hoặc xoay màn hình sẽ đặt lại bộ lọc.
+- Thiết bị báo RAM ≤ 4 GB hoặc ≤ 4 luồng CPU dùng canvas DPR tối đa 1, ít điểm quỹ đạo và ít hiệu ứng mây/mưa hơn. Nếu trình duyệt không cung cấp thông tin, dùng chất lượng mặc định. Chưa đo FPS trên thiết bị vật lý.
+- Cache forecast giới hạn 16 mục, tối đa 30 phút: tọa độ làm tròn 4 chữ số, ngày UTC và toàn bộ tham số (loại dữ liệu, khoảng ngày, múi giờ, góc pin). Request cùng khóa dùng chung promise; hủy một consumer không hủy request chung. Lỗi mạng/408/429/5xx tạm thời thử tối đa 3 lần, timeout 3 giây/lần, backoff tăng dần kèm jitter. `Retry-After` dài được chuyển thành cooldown theo khóa để không giữ giao diện chờ. Thời điểm cập nhật thành công gần nhất vẫn hiện khi lần tải sau lỗi.
+- Solar dùng NOAA/Meeus tại thời điểm UTC thực, kể cả chuyển ngày. Độ cao là góc hình học chưa hiệu chỉnh khúc xạ; mọc/lặn dùng ngưỡng −0,833°. Giờ là phút trong ngày địa phương theo UTC offset người dùng chọn (cần chọn offset DST đúng ngày). Sự kiện không xảy ra trả về `null`; ngày/đêm vùng cực có thời lượng 1440/0 phút.
+- `tests/fixtures/noaa.json` chứa dữ liệu sinh độc lập từ [mã NOAA](https://gml.noaa.gov/grad/solcalc/main.js), kèm SHA-256 nguồn. Tái tạo: tải nguồn rồi chạy `bun scripts/generate-noaa-fixtures.cjs /path/to/noaa-main.js`. Generator tắt khúc xạ để so cùng quy ước và chuẩn hóa phút UTC trước khi gọi hàm NOAA cho múi giờ sát đường đổi ngày. Test không cần mạng: 9 địa điểm × 5 ngày (hai phân, hai chí, ngày nhuận), 225 vị trí, múi giờ lẻ +5:45 và +14, hai bán cầu và vùng cực. Ngưỡng đối chiếu 0,01° / 2 phút là sai lệch với thuật toán tham chiếu, không phải cam kết độ chính xác quan sát thực tế.
+
+Mô phỏng trong năm: kéo thanh ngày hoặc bấm **Chạy cả năm** (3 ngày mỗi bước), giữ nguyên giờ địa phương để so sánh các mùa. Có hỗ trợ năm nhuận, dừng ở cuối năm và khi chuyển sang mô phỏng trong ngày. Hai nút icon đặt pin/theo la bàn nằm trên canvas; khung cài đặt có vùng cuộn cao hơn.
+
+Chiều rộng nhà chính chỉnh từ 8–30 m, bước 0,5 m; mái, giàn đỡ, mặt phẳng bố trí và vị trí nhà bên cập nhật theo chiều rộng. Profile cũ thiếu chiều rộng mặc định 8 m. Gợi ý bố trí cả năm bổ sung tìm vị trí riêng cho từng tấm trên lưới 0,5 m, thử nhiều điểm khởi đầu, cho phép thành cụm hoặc rời rạc; giữ số tấm, không chồng nhau/vượt mái, chỉ thay bố trí khi chỉ số đón nắng tăng. Đây là tìm kiếm gần đúng có xét bóng nhà bên; chưa mô phỏng bóng che lẫn nhau giữa các tấm, khoảng lối đi hay yêu cầu kết cấu thi công.

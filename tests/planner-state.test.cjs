@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 require('../dist/panel-geometry.js');
 const State=require('../dist/planner-state.js');
-const config={length:12,count:2,roof:1,bearing:180,tilt:25,floors:2,x:0,z:0,house:90,left:3,right:5,leftRoof:1,rightRoof:0};
+const config={width:8,length:12,count:2,roof:1,bearing:180,tilt:25,floors:2,x:0,z:0,house:90,left:3,right:5,leftRoof:1,rightRoof:0};
 const state={version:1,config,positions:[{x:-2,z:0},{x:2,z:0}],view:{yaw:2,pitch:.6,zoom:1.5},location:{lat:10.8,lon:106.6,offset:7},energy:{kwp:11,loss:20,reserve:true}};
 const storage=()=>{const data=new Map();return {getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};};
 const clientA=storage(),clientB=storage();
@@ -25,3 +25,9 @@ for(const profile of [{...state,location:{lat:999,lon:0,offset:7}},{...state,ene
 }
 assert.deepEqual(State.importBackup(State.exportBackup({version:1,config,positions:state.positions})),{version:1,config,positions:state.positions},'Backup can omit unavailable location');
 console.log('Profile backup checks passed: complete export/import, invalid files, unsupported versions and optional coordinates.');
+
+const legacy=JSON.parse(JSON.stringify(state));delete legacy.config.width;
+assert.equal(State.validate(legacy).config.width,8,'Old profiles default to 8 m width');
+const wide={...state,config:{...config,width:20},positions:[{x:-8,z:0},{x:8,z:0}]};
+assert.deepEqual(State.importBackup(State.exportBackup(wide)),wide);
+assert.equal(State.validate({...wide,config:{...wide.config,width:31}}),null);

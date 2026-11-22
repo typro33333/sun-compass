@@ -1,7 +1,7 @@
 (() => {
   const pending = new Map(), cache = new Map();
-  let blockedUntil = 0;
-  const storageKey = 'sol-forecast-cache-v2';
+  const blocked = new Map();
+  const storageKey = 'sol-forecast-cache-v3';
   try {
     const saved = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
     if (Array.isArray(saved)) for (const [key, entry] of saved.slice(-16)) {
@@ -21,17 +21,32 @@
   }
   async function fetchForecast(params, { signal } = {}) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    const key = keyFor(params), existing = cache.get(key);
+    for (const [key, until] of blocked) if (until <= Date.now()) blocked.delete(key);
+    while (blocked.size > 64) blocked.delete(blocked.keys().next().value);
+    const query = keyFor(params);
+    const key = `${new Date().toISOString().slice(0, 10)}|${query}`, existing = cache.get(key);
     if (existing?.expires > Date.now()) return Response.json(existing.data);
-    if (Date.now() < blockedUntil) return Response.json({ error: 'Please wait before retrying' }, { status: 429 });
+    if (Date.now() < (blocked.get(key) || 0)) return Response.json({ error: 'Please wait before retrying' }, { status: 429 });
     let task = pending.get(key);
     if (!task) {
       task = (async () => {
-        const response = await fetch(`/api/forecast?${key}`, { signal: AbortSignal.timeout(14000) });
-        if (!response.ok) {
-          const seconds = Number(response.headers.get('Retry-After'));
-          blockedUntil = Date.now() + Math.max(15, Number.isFinite(seconds) ? seconds : 60) * 1000;
-          return { ok: false, status: response.status };
+        let response;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          let retryAfter = 0;
+          try {
+            response = await fetch(`/api/forecast?${query}`, { signal: AbortSignal.timeout(3000) });
+            if (response.ok) break;
+            if (![408, 429, 500, 502, 503, 504].includes(response.status)) return { ok: false, status: response.status };
+            const header = response.headers.get('Retry-After');
+            retryAfter = header === null ? 0 : /^\d+(\.\d+)?$/.test(header) ? Number(header) * 1000 : Math.max(0, Date.parse(header) - Date.now()) || 0;
+            if (retryAfter > 2000 || attempt === 2) {
+              blocked.set(key, Date.now() + Math.max(15000, retryAfter));
+              return { ok: false, status: response.status };
+            }
+          } catch (error) {
+            if (attempt === 2) { blocked.set(key, Date.now() + 15000); throw error; }
+          }
+          await new Promise(resolve => setTimeout(resolve, Math.max(retryAfter, 250 * 2 ** attempt + Math.random() * 100)));
         }
         const data = await response.json();
         const expires = Date.parse(data._cache?.expires_at);
@@ -39,7 +54,7 @@
           cache.set(key, { data, expires: Math.min(expires, Date.now() + 1800000) }); persist();
         }
         return { ok: true, data };
-      })().catch(error => { blockedUntil = Date.now() + 15000; throw error; }).finally(() => pending.delete(key));
+      })().finally(() => pending.delete(key));
       pending.set(key, task);
     }
     // Cancelling a consumer must not cancel the shared network request.

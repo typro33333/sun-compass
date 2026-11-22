@@ -278,3 +278,89 @@ header{gap:16px}#theme-toggle{white-space:nowrap}
 .calculator-page #energy-dialog p{overflow-wrap:anywhere}
 @media(max-width:1000px){.calculator-page .energy-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.calculator-page .energy-fields{grid-template-columns:minmax(0,1fr)}.calculator-page #energy-calculate{width:100%;min-height:44px}}
+
+/* Compact actions sit directly on the simulation. */
+.planner-canvas-actions{position:absolute;top:12px;left:12px;z-index:2;display:flex;gap:8px}
+.planner-canvas-actions .planner-icon-button{display:grid;place-items:center;width:44px;height:44px;padding:10px;background:#fffffff2;border:1px solid #91a499;box-shadow:0 2px 8px #23382c18}
+.planner-canvas-actions button[aria-pressed=true]{background:#d7ebda;border-color:#3f7052;color:#234d37}
+[data-theme=dark] .planner-canvas-actions .planner-icon-button{background:#19282ef2;color:#dfebe3;border-color:#61776b}
+[data-theme=dark] .planner-canvas-actions button[aria-pressed=true]{background:#365f4b}
+.planner-settings .planner-controls{max-height:min(440px,65svh)}
+.annual-timeline{margin-top:20px;padding-top:18px;border-top:1px solid #91a49955}
+.annual-timeline p{margin:8px 0;font-size:14px}.annual-timeline input{width:100%}
+@media(max-width:760px){.planner-canvas-actions{top:8px;left:8px}.planner-settings .planner-controls{max-height:min(380px,55svh)}.annual-timeline .timeline-top{gap:10px;flex-wrap:wrap}}
+
+/* Day and year controls share equal space and aligned slider baselines. */
+body.calculator-page .timeline-card .simulation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+body.calculator-page .timeline-card .simulation-grid>section{min-width:0;display:flex;flex-direction:column;margin:0;padding:0;border:0}
+body.calculator-page .timeline-card .simulation-grid>.annual-timeline{padding-left:24px;border-left:1px solid #91a49955}
+body.calculator-page .timeline-card .simulation-grid .timeline-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px 12px;align-items:start;flex:1}
+body.calculator-page .timeline-card .simulation-grid .timeline-top>div:first-child{grid-column:1;grid-row:1}
+body.calculator-page .timeline-card .simulation-grid .eyebrow{font-size:11px;letter-spacing:1.2px}
+body.calculator-page .timeline-card .simulation-grid .time-display,body.calculator-page .timeline-card .simulation-grid .year-display{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:10px}
+body.calculator-page .timeline-card .simulation-grid #selected-time,body.calculator-page .timeline-card .simulation-grid #year-date{font-size:clamp(24px,2.5vw,32px);font-weight:500;letter-spacing:-.8px;line-height:1.25;font-variant-numeric:tabular-nums}
+body.calculator-page .timeline-card .simulation-grid #phase,body.calculator-page .timeline-card .simulation-grid .year-display>span{font-size:12px;max-width:none;line-height:1.5;color:#56695b}
+body.calculator-page .timeline-card .simulation-grid .metrics{grid-column:1/-1;grid-row:2;gap:24px;margin:0}
+body.calculator-page .timeline-card .simulation-grid .metrics div{display:flex;flex-direction:row;align-items:baseline;gap:8px}
+body.calculator-page .timeline-card .simulation-grid .metrics span{font-size:12px}body.calculator-page .timeline-card .simulation-grid .metrics b{font-size:15px}
+body.calculator-page .timeline-card .simulation-grid .play-actions{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:8px;width:auto;margin:0}
+body.calculator-page .timeline-card .simulation-grid .play-actions button{min-height:40px;padding:9px 12px;white-space:nowrap}
+body.calculator-page .timeline-card .simulation-grid .range-wrap{margin-top:22px;padding:8px 0}
+body.calculator-page .timeline-card .simulation-grid .time-ticks{min-height:16px;justify-content:space-between;gap:4px;margin-top:8px;font-size:10px;line-height:1.5}
+body.calculator-page .timeline-card .simulation-grid #year-day{background:linear-gradient(90deg,#a9c8b7,#e1c985,#d5a46e,#a9c8b7)}
+[data-theme=dark] body.calculator-page .timeline-card .simulation-grid :is(#phase,.year-display>span){color:#b0c1bd}
+@media(max-width:600px){
+ body.calculator-page .timeline-card .simulation-grid{gap:16px}
+ body.calculator-page .timeline-card .simulation-grid>.annual-timeline{padding-left:16px}
+ body.calculator-page .timeline-card .simulation-grid .timeline-top{grid-template-columns:minmax(0,1fr);gap:12px}
+ body.calculator-page .timeline-card .simulation-grid .play-actions{grid-column:1;grid-row:3;flex-direction:row;flex-wrap:wrap}
+ body.calculator-page .timeline-card .simulation-grid .metrics{flex-wrap:wrap;gap:6px 14px}
+ body.calculator-page .timeline-card .simulation-grid .eyebrow{font-size:10px;letter-spacing:.6px}
+ body.calculator-page .timeline-card .simulation-grid #year-date{font-size:22px}
+ body.calculator-page .timeline-card .simulation-grid .time-ticks{flex-wrap:wrap}
+ body.calculator-page .timeline-card .simulation-grid .range-wrap{margin-top:16px}
+}
+@media(max-width:380px){
+ body.calculator-page .timeline-card .simulation-grid{grid-template-columns:minmax(0,1fr);gap:22px}
+ body.calculator-page .timeline-card .simulation-grid>.annual-timeline{padding:20px 0 0;border-left:0;border-top:1px solid #91a49955}
+}
+
+#location-notice[hidden]{display:none!important}
+#header-gps{display:grid;place-items:center;width:44px;height:44px;padding:10px;flex-shrink:0;margin-left:auto;margin-right:12px}
+#header-gps[data-state=success]{color:#237b46;background:#e6f5eb;border-color:#99c9aa}
+#header-gps[data-state=error]{color:#c33333;background:#fff0ef;border-color:#e9aaaa}
+#header-gps[data-state=saved],#header-gps[data-state=pending]{color:#8b6924;background:#fbf3de;border-color:#dbca9a}
+[data-theme=dark] #header-gps[data-state=success]{color:#80dda2;background:#193d2a;border-color:#44845c}
+[data-theme=dark] #header-gps[data-state=error]{color:#ff9a94;background:#492727;border-color:#a65353}
+.planner-settings{left:12px;right:auto}
+.planner-settings>summary.planner-icon-button{margin-left:0;margin-right:auto}
+.planner-canvas-actions{left:auto;right:12px}
+@media(max-width:760px){.planner-settings{left:8px;right:auto}.planner-canvas-actions{left:auto;right:8px}}
+
+.annual-timeline[hidden]{display:none!important}
+
+/* Keep location and solar times next to navigation; preferences share one dropdown. */
+header .header-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-left:auto}
+header .header-sun-times{margin:0;gap:12px}
+header #header-gps{margin:0}
+header #energy-open{margin:0;white-space:nowrap}
+.header-preferences{position:relative;flex-shrink:0}
+header #header-menu-toggle{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;white-space:nowrap}
+header #header-menu-toggle::before{display:none}
+header .header-actions{display:none;position:absolute;top:calc(100% + 8px);right:0;z-index:40;width:min(290px,calc(100vw - 24px));margin:0;padding:16px;flex-direction:column;align-items:stretch;gap:12px;background:#fff;border:1px solid #dce2d9;border-radius:14px;box-shadow:0 12px 35px #142b2326}
+header .header-actions.is-open{display:flex}
+header .header-actions #theme-toggle,header .header-actions .language-picker,header .header-actions select{width:100%;margin:0;text-align:left;font-size:14px;min-height:44px}
+header .header-actions .tz-row{display:flex;justify-content:space-between;margin:0;padding-top:12px;border-top:1px solid #dce2d9}
+header .header-actions .tz-row label{font-size:13px}
+[data-theme=dark] header .header-actions{background:#19282e;border-color:#455b61}
+[data-theme=dark] header .header-actions .tz-row{border-color:#455b61}
+@media(max-width:1000px){header{padding-left:20px;padding-right:20px;gap:16px}.brand .brand-sub,.brand .brand-divider{display:none}}
+@media(max-width:650px){
+ header{flex-wrap:wrap;gap:10px;padding:12px}
+ header .brand{width:auto;margin:0}
+ header .header-tools{width:100%;margin:0;gap:8px;flex-wrap:wrap}
+ header .header-sun-times{gap:10px;margin-right:auto}
+ header #energy-open{font-size:11px;padding:10px}
+ header #header-menu-toggle{font-size:11px;padding:10px}
+ header .header-preferences{margin-left:auto}
+}

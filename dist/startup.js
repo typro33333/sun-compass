@@ -41,14 +41,24 @@
   mobile.addEventListener('change', arrangeMobile);
   arrangeMobile();
 
+  globalThis.setGPSStatus = (state, message) => {
+    const icon=$('header-gps');
+    icon.dataset.state=state;icon.title=message;
+    icon.setAttribute('aria-label',message);
+    icon.setAttribute('aria-busy',String(state==='pending'));
+  };
   function failure(message) {
+    setGPSStatus('error',message);
     $('location-status').textContent = message;
     $('location-retry').textContent = 'Thử lại GPS';
     $('feedback').textContent = message;
     $('location-retry').hidden = false;
     $('location-retry').disabled = false;
   }
+  let gpsRequest=0;
   function locate() {
+    const request=++gpsRequest;
+    setGPSStatus('pending','Đang lấy vị trí GPS…');
     $('location-retry').hidden = true;
     $('location-status').textContent = 'Đang xin quyền vị trí…';
     $('feedback').textContent = 'Vui lòng cấp quyền vị trí để xem hướng nắng và dự báo tại nơi bạn đang đứng.';
@@ -56,7 +66,7 @@
     if (!navigator.geolocation) { failure('Trình duyệt không hỗ trợ GPS. Hãy mở bằng Safari hoặc Chrome.'); return; }
     const plannerRevision=globalThis.plannerLocationRevision;
     navigator.geolocation.getCurrentPosition(position => {
-      if(plannerRevision!==globalThis.plannerLocationRevision)return;
+      if(request!==gpsRequest || plannerRevision!==globalThis.plannerLocationRevision)return;
       lat = position.coords.latitude;
       lon = position.coords.longitude;
       $('lat').value = lat.toFixed(4);
@@ -64,16 +74,18 @@
       $('timezone').value = offset;
       setCurrentTime();
       locationReady = true;
+      setGPSStatus('success','Đã lấy GPS hiện tại. Bấm để cập nhật vị trí.');
       $('location-name').textContent = 'Vị trí hiện tại';
       $('location-status').textContent = 'Đã lấy vị trí hiện tại';
       $('feedback').textContent = 'Mặc định UTC+7. Có thể chỉnh múi giờ trong menu.';
       $('location-retry').hidden = true;
       refresh();
     }, error => {
-      if(plannerRevision!==globalThis.plannerLocationRevision)return;
+      if(request!==gpsRequest || plannerRevision!==globalThis.plannerLocationRevision)return;
       failure(error.code === 1 ? 'Quyền vị trí bị từ chối. Bật quyền vị trí trong cài đặt trang rồi bấm Thử lại GPS.' : 'Không lấy được GPS. Kiểm tra dịch vụ vị trí và kết nối, rồi thử lại.');
     }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   }
   $('location-retry').onclick = locate;
+  $('header-gps').onclick = locate;
   if(!globalThis.restorePlannerLocation?.())locate();
 })();

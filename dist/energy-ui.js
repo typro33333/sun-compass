@@ -19,15 +19,14 @@ $('energy-preview-open').onclick = () => {
 };
 $('energy-close').hidden = true;
 let savedProfile = null;
-try { savedProfile = SolarProfile.read(document.cookie); } catch {}
+try { savedProfile = SolarProfile.migrate(localStorage, document); } catch {}
 function saveProfile() {
   savedProfile = { version: 1, kwp: Number($('energy-kwp').value), loss: Number($('energy-loss').value), tilt: Number($('energy-tilt').value), azimuth: Number($('energy-azimuth').value), lat, lon, offset };
   try {
-    document.cookie = SolarProfile.encode(savedProfile, location.protocol === 'https:');
-    if (JSON.stringify(SolarProfile.read(document.cookie)) !== JSON.stringify(savedProfile)) throw new Error();
-    $('profile-status').textContent = 'Đã lưu cấu hình trên trình duyệt này trong 1 năm. Lần mở sau tự tải dự báo mới cho hôm nay.';
+    SolarProfile.write(savedProfile, localStorage);
+    $('profile-status').textContent = 'Đã lưu cấu hình trên trình duyệt này. Lần mở sau tự tải dự báo mới cho hôm nay.';
   } catch {
-    $('profile-status').textContent = 'Trình duyệt không cho lưu cookie. Vẫn tính được nhưng lần mở sau cần nhập lại.';
+    $('profile-status').textContent = 'Trình duyệt không cho lưu cấu hình. Vẫn tính được nhưng lần mở sau cần nhập lại.';
   }
 }
 energyForm.addEventListener('submit', event => {

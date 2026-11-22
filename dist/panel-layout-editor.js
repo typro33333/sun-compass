@@ -15,8 +15,8 @@
     function message(text){find('layout-status').textContent=text;}
     function draw(focus=false) {
       const polygons=PanelGeometry.individualPanels(draft,bearing(),0,0);
-      svg.setAttribute('viewBox',`-4.4 ${-c.length/2-.8} 8.8 ${c.length+1.2}`);
-      svg.innerHTML=`<rect x="-4" y="${-c.length/2}" width="8" height="${c.length}" fill="var(--layout-roof, #e1ebe3)" stroke="#718b7b" stroke-width=".04"/><text x="0" y="${-c.length/2-.25}" text-anchor="middle" font-size=".3" fill="#466456">CỬA CHÍNH · HƯỚNG NHÀ</text>`;
+      svg.setAttribute('viewBox',`${-c.width/2-.4} ${-c.length/2-.8} ${c.width+.8} ${c.length+1.2}`);
+      svg.innerHTML=`<rect x="${-c.width/2}" y="${-c.length/2}" width="${c.width}" height="${c.length}" fill="var(--layout-roof, #e1ebe3)" stroke="#718b7b" stroke-width=".04"/><text x="0" y="${-c.length/2-.25}" text-anchor="middle" font-size=".3" fill="#466456">CỬA CHÍNH · HƯỚNG NHÀ</text>`;
       polygons.forEach((p,i)=>{
         const node=document.createElementNS('http://www.w3.org/2000/svg','polygon');
         node.setAttribute('points',p.map(v=>`${v[0]},${v[2]}`).join(' '));
@@ -28,7 +28,7 @@
     }
     function move(x,z) {
       const next=draft.map((p,i)=>i===selected?{x,z}:p);
-      if(!PanelGeometry.validPlacement(next,bearing(),c.length)){message('Vị trí này chồng lên tấm khác hoặc vượt mép mái.');return;}
+      if(!PanelGeometry.validPlacement(next,bearing(),c.length,c.width)){message('Vị trí này chồng lên tấm khác hoặc vượt mép mái.');return;}
       draft=next;draw();message(`${draft.length} tấm · Tấm ${selected+1}: ngang ${x.toFixed(1)} m, dọc ${z.toFixed(1)} m.`);
     }
     const point=e=>new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse());
@@ -46,15 +46,15 @@
     });
     find('layout-add').onclick=()=>{
       if(draft.length>=12)return;
-      for(let z=-c.length/2+1;z<=c.length/2;z+=.2)for(let x=-3.4;x<=4;x+=.2) {
-        const next=[...draft,{x,z}];if(PanelGeometry.validPlacement(next,bearing(),c.length)){draft=next;selected=draft.length-1;draw(true);message(`${draft.length} tấm`);return;}
+      for(let z=-c.length/2+1;z<=c.length/2;z+=.2)for(let x=-c.width/2+.6;x<=c.width/2;x+=.2) {
+        const next=[...draft,{x,z}];if(PanelGeometry.validPlacement(next,bearing(),c.length,c.width)){draft=next;selected=draft.length-1;draw(true);message(`${draft.length} tấm`);return;}
       }
       message('Không còn vị trí trống. Hãy di chuyển các tấm hoặc xếp tự động.');
     };
     find('layout-remove').onclick=()=>{if(draft.length<=1)return;draft.splice(selected,1);selected=Math.min(selected,draft.length-1);draw(true);message(`${draft.length} tấm`);};
     find('layout-auto').onclick=()=>{draft=getPositions(draft.length,true).map(p=>({...p}));draw();message('Đã xếp tự động.');};
-    find('layout-apply').onclick=()=>{if(!PanelGeometry.validPlacement(draft,bearing(),c.length)){message('Bố trí chưa hợp lệ.');return;}apply(draft);dialog.close();};
+    find('layout-apply').onclick=()=>{if(!PanelGeometry.validPlacement(draft,bearing(),c.length,c.width)){message('Bố trí chưa hợp lệ.');return;}apply(draft);dialog.close();};
     find('layout-cancel').onclick=()=>dialog.close();
-    return action=>{c=getConfiguration();draft=getPositions(c.count).map(p=>({...p}));selected=0;draw();message(`${draft.length} tấm · Mái rộng 8 m × dài ${c.length} m. Các tấm 1,18 × 1,96 m; 3D áp dụng thêm độ nghiêng đã chọn.`);dialog.showModal();if(action==='add')find('layout-add').click();};
+    return action=>{c=getConfiguration();draft=getPositions(c.count).map(p=>({...p}));selected=0;draw();message(`${draft.length} tấm · Mái rộng ${c.width} m × dài ${c.length} m. Các tấm 1,18 × 1,96 m; 3D áp dụng thêm độ nghiêng đã chọn.`);dialog.showModal();if(action==='add')find('layout-add').click();};
   };
 })(globalThis);

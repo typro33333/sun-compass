@@ -1,17 +1,18 @@
 (function(root) {
   const key='sol-planner-v1';
-  const limits={length:[8,30],count:[1,12,true],roof:[0,1,true],bearing:[0,360],tilt:[0,90],floors:[0,3,true],x:[-4,4],z:[-15,15],house:[0,360],left:[0,5,true],right:[0,5,true],leftRoof:[0,1,true],rightRoof:[0,1,true]};
+  const limits={width:[8,30],length:[8,30],count:[1,12,true],roof:[0,1,true],bearing:[0,360],tilt:[0,90],floors:[0,3,true],x:[-15,15],z:[-15,15],house:[0,360],left:[0,5,true],right:[0,5,true],leftRoof:[0,1,true],rightRoof:[0,1,true]};
   const inRange=(value,min,max,integer=false)=>typeof value==='number' && Number.isFinite(value) && value>=min && value<=max && (!integer || Number.isInteger(value));
   function validate(value) {
     if(!value || value.version!==1 || !value.config)return null;
     const config={};
+    const input={width:8,...value.config};
     for(const [name,range] of Object.entries(limits)) {
-      if(!inRange(value.config[name],...range))return null;
-      config[name]=value.config[name];
+      if(!inRange(input[name],...range))return null;
+      config[name]=input[name];
     }
-    if(!Array.isArray(value.positions) || value.positions.length!==config.count || value.positions.some(p=>!p || !inRange(p.x,-4,4) || !inRange(p.z,-15,15)))return null;
+    if(!Array.isArray(value.positions) || value.positions.length!==config.count || value.positions.some(p=>!p || !inRange(p.x,-15,15) || !inRange(p.z,-15,15)))return null;
     const positions=value.positions.map(({x,z})=>({x,z}));
-    if(!root.PanelGeometry.validPlacement(positions,config.bearing-config.house,config.length))return null;
+    if(!root.PanelGeometry.validPlacement(positions,config.bearing-config.house,config.length,config.width))return null;
     const state={version:1,config,positions};
     const view=value.view;
     if(view && inRange(view.yaw,-1e6,1e6) && inRange(view.pitch,.05,Math.PI/2) && inRange(view.zoom,.5,4))state.view={yaw:view.yaw,pitch:view.pitch,zoom:view.zoom};
@@ -29,7 +30,7 @@
   function backupState(value) {
     const state=validate(value);
     if(!state || ['view','location','energy'].some(name=>value[name]!==undefined && !state[name]))throw Error('Profile không hợp lệ hoặc có thông số ngoài giới hạn.');
-    if(!root.PanelGeometry.validPlacement(state.positions.map(p=>({x:p.x+state.config.x,z:p.z-state.config.z})),state.config.bearing-state.config.house,state.config.length))throw Error('Vị trí pin vượt mép mái.');
+    if(!root.PanelGeometry.validPlacement(state.positions.map(p=>({x:p.x+state.config.x,z:p.z-state.config.z})),state.config.bearing-state.config.house,state.config.length,state.config.width))throw Error('Vị trí pin vượt mép mái.');
     return state;
   }
   function exportBackup(value) {

@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id),R=Math.PI/180;
 let locationReady=false;
+let yearPlaying = null, yearAdvancing = false;
 let lat=10.8231,lon=106.6297,offset=7,minute=0,heading=0,playing=null,events;
 try {
   const savedOffset = localStorage.getItem('sol-utc-offset');
@@ -22,18 +23,20 @@ const fmt=m=>m===null?'—':`${String(Math.floor(Math.round(m)/60)%24).padStart(
 const direction=a=>['B','ĐB','Đ','ĐN','N','TN','T','TB'][Math.round(a/45)%8];
 const point=(a,r)=>[300+r*Math.sin((a-heading)*R),300-r*Math.cos((a-heading)*R)];
 const line=(a,r1,r2,color,width=1)=>{const p=point(a,r1),q=point(a,r2);return `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${color}" stroke-width="${width}"/>`;};
+const lowRenderQuality = (globalThis.navigator?.deviceMemory <= 4 || globalThis.navigator?.hardwareConcurrency <= 4);
+globalThis.lowRenderQuality = lowRenderQuality;
 let dailyOrbitKey = '', dailyOrbit = [];
 function draw(){
  if (!locationReady) return;
  const day=$('date').value,p=Solar.position(day,minute,lat,lon,offset);
  let dial='<circle cx="300" cy="300" r="210" fill="none" stroke="#e4e8dc"/><circle cx="300" cy="300" r="155" fill="none" stroke="#edf0e8" stroke-dasharray="3 6"/><circle cx="300" cy="300" r="85" fill="none" stroke="#edf0e8" stroke-dasharray="3 6"/>';
- for(let a=0;a<360;a+=3)dial+=line(a,a%30===0?218:224,232,a%30===0?'#98a58e':'#cfd6c5',a%30===0?1.5:1);
+ for(let a=0;a<360;a+=(lowRenderQuality ? 6 : 3))dial+=line(a,a%30===0?218:224,232,a%30===0?'#98a58e':'#cfd6c5',a%30===0?1.5:1);
  for(let a=0;a<360;a+=30){const [x,y]=point(a,201);dial+=`<text x="${x}" y="${y+3}" text-anchor="middle" font-size="9" fill="#5f7062">${a}°</text>`;}
  ['B','Đ','N','T'].forEach((d,i)=>{const [x,y]=point(i*90,260);dial+=`<text x="${x}" y="${y+6}" text-anchor="middle" font-size="19" font-weight="500" fill="${i===0?'#91632a':'#56695b'}">${d}</text>`;});$('dial').innerHTML=dial;
  const orbitKey = `${day},${lat},${lon},${offset}`;
  if (orbitKey !== dailyOrbitKey) {
    dailyOrbitKey = orbitKey;
-   dailyOrbit = Array.from({ length: 361 }, (_, i) => Solar.position(day,i*4,lat,lon,offset));
+   dailyOrbit = Array.from({ length: lowRenderQuality ? 121 : 361 }, (_, i) => Solar.position(day,i*(lowRenderQuality ? 12 : 4),lat,lon,offset));
  }
  let path='',pen=false;for(const s of dailyOrbit){if(s.altitude<-.833){pen=false;continue;}const [x,y]=point(s.azimuth,210*(90-Math.max(0,s.altitude))/90);path+=`${pen?'L':'M'}${x},${y} `;pen=true;}
  let plot=`<path d="${path}" fill="none" stroke="#c2ae72" stroke-width="1.6" stroke-dasharray="4 5"/>`;
@@ -46,7 +49,7 @@ function draw(){
  globalThis.renderPanelPlanner?.();
 }
 function refresh(){if (!locationReady) return;globalThis.onSolarLocationChanged?.();syncMonth();loadWeather();events=Solar.events($('date').value,lat,lon,offset);globalThis.onSolarDayChanged?.();for(const [key,m] of [['rise',events.rise],['set',events.set]]){$(key+'-time').textContent=fmt(m);$(key+'-dir').textContent=m===null?'Không xảy ra':(()=>{const a=Solar.position($('date').value,m,lat,lon,offset).azimuth;return `${Math.round(a)}° ${direction(a)}`;})();}$('daylength').textContent=`${Math.floor(events.daylight/60)} giờ ${events.daylight%60} phút`;draw();}
-function stop(){clearInterval(playing);playing=null;$('play').textContent='Tự chạy';$('play').dataset.playing='false';}
+function stop(){if (!yearAdvancing) stopYear();clearInterval(playing);playing=null;$('play').textContent='Tự chạy';$('play').dataset.playing='false';}
 $('time').addEventListener('input',e=>{stop();minute=+e.target.value;draw();});
 $('date').addEventListener('change',()=>{if(!$('date').value){$('date').value=today();}refresh();});
 $('timezone').addEventListener('change', () => {
@@ -59,8 +62,9 @@ $('timezone').addEventListener('change', () => {
   refresh();
 });
 $('now').onclick=()=>{stop();setCurrentTime();refresh();};
-$('play').onclick=()=>{if(playing){stop();return;}$('play').textContent='Tạm dừng';$('play').dataset.playing='true';playing=setInterval(()=>{minute=(minute+3)%1440;draw();},100);};
+$('play').onclick=()=>{stopYear();if(playing){stop();return;}$('play').textContent='Tạm dừng';$('play').dataset.playing='true';playing=setInterval(()=>{minute=(minute+3)%1440;draw();},100);};
 function syncMonth() {
+  syncYear();
   const [year, month] = $('date').value.split('-');
   $('month').value = Number(month);
   $('month-label').textContent = `Tháng ${Number(month)} / ${year}`;
@@ -74,6 +78,44 @@ $('month').addEventListener('input', () => {
   $('date').value = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(Math.min(day, maxDay)).padStart(2, '0')}`;
   refresh();
 });
+function stopYear() {
+  clearInterval(yearPlaying); yearPlaying = null;
+  if ($('year-play')) { $('year-play').textContent = 'Chạy cả năm'; $('year-play').setAttribute('aria-pressed', 'false'); }
+}
+function syncYear() {
+  if (!$('year-day')) return;
+  const day = $('date').value, year = Number(day.slice(0,4));
+  const start = Date.UTC(year,0,1);
+  $('year-day').max = (Date.UTC(year+1,0,1)-start)/86400000;
+  $('year-day').value = Math.round((Date.parse(day+'T00:00:00Z')-start)/86400000)+1;
+  $('year-day').setAttribute('aria-valuetext', day);
+  $('year-date').textContent = day.split('-').reverse().join('/');
+}
+function selectYearDay(value) {
+  const year = Number($('date').value.slice(0,4));
+  const max = (Date.UTC(year+1,0,1)-Date.UTC(year,0,1))/86400000;
+  const day = Math.max(1, Math.min(max, Number(value)));
+  yearAdvancing = true;
+  try {
+    $('date').value = new Date(Date.UTC(year,0,day)).toISOString().slice(0,10);
+    if (locationReady) refresh(); else syncMonth();
+  } finally { yearAdvancing = false; }
+}
+if ($('year-day')) $('year-day').addEventListener('input', event => { stop(); selectYearDay(event.target.value); });
+if ($('year-play')) $('year-play').onclick = () => {
+  if (yearPlaying !== null) { stopYear(); return; }
+  if (!locationReady) return;
+  stop(); syncYear();
+  if (Number($('year-day').value) >= Number($('year-day').max)) selectYearDay(1);
+  $('year-play').textContent = 'Tạm dừng'; $('year-play').setAttribute('aria-pressed','true');
+  yearPlaying = setInterval(() => {
+    const next = Math.min(Number($('year-day').max), Number($('year-day').value)+3);
+    selectYearDay(next);
+    if (next >= Number($('year-day').max)) stopYear();
+  }, 180);
+};
+if (typeof document.addEventListener === 'function') document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+syncYear();
 let weatherKey = '', weatherUpdated = 0, weatherRequest = 0, weatherController;
 let weatherAvailable = false;
 function updateWeatherVisibility() {
@@ -82,11 +124,11 @@ function updateWeatherVisibility() {
   $('clouds').style.display = weatherAvailable && nearNow ? '' : 'none';
 }
 function renderWeather(cloudCover, raining) {
-  const count = Math.round(cloudCover / 100 * 9);
+  const count = Math.round(cloudCover / 100 * (lowRenderQuality ? 3 : 9));
   $('clouds').innerHTML = Array.from({ length: count }, (_, i) => {
     const x = 105 + (i * 107) % 320, y = 135 + (i * 83) % 320;
     return `<g class="cloud-drift" style="animation-delay:-${i * 7}s;animation-duration:${28 + i * 3}s"><g transform="translate(${x} ${y}) scale(${0.65 + (i % 3) * 0.2})"><path d="M-48 15 C-67 15-67-12-47-15 C-48-42-8-51 5-27 C25-43 50-25 46-8 C72-4 67 22 45 22 H-45Z" fill="#b6c3cd" opacity=".55"/></g></g>`;
-  }).join('') + (raining ? Array.from({ length: 22 }, (_, i) => {
+  }).join('') + (raining ? Array.from({ length: lowRenderQuality ? 6 : 22 }, (_, i) => {
     const x = 130 + (i * 73) % 340, y = 150 + (i * 53) % 300;
     return `<line class="rain-drop" x1="${x}" y1="${y}" x2="${x - 5}" y2="${y + 13}" stroke="#729ab1" stroke-width="2" opacity=".5" style="animation-delay:-${i / 9}s"/>`;
   }).join('') : '');
@@ -94,7 +136,7 @@ function renderWeather(cloudCover, raining) {
 }
 async function loadWeather(force = false) {
   if (!globalThis.isSolarCalculator || globalThis.hideCurrentWeather || !locationReady) return;
-  const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  const key = `${lat.toFixed(4)},${lon.toFixed(4)},${today()}`;
   if (!force && key === weatherKey && Date.now() - weatherUpdated < 600000) return;
   weatherKey = key;
   weatherUpdated = Date.now();
@@ -108,7 +150,6 @@ async function loadWeather(force = false) {
   $('weather-status').textContent = 'Đang tải thời tiết…';
   $('weather-cloud').textContent = 'Mây: —';
   $('weather-rain').textContent = 'Mưa: —';
-  $('weather-time').textContent = '';
   try {
     const params = new URLSearchParams({ latitude: lat.toFixed(4), longitude: lon.toFixed(4), current: 'cloud_cover,rain,showers,weather_code', timeformat: 'unixtime', timezone: 'UTC' });
     const response = await ForecastClient.fetch(params, { signal: controller.signal });
@@ -124,12 +165,14 @@ async function loadWeather(force = false) {
     $('weather-cloud').textContent = `${cloudLabel} · ${current.cloud_cover}% mây`;
     $('weather-rain').textContent = `${raining ? 'Có mưa' : 'Không mưa'} · ${rain.toFixed(2)} mm / ${Math.round(current.interval / 60)} phút`;
     const stamp = new Date(current.time * 1000).toLocaleString(globalThis.solLocale?.() || 'vi-VN', { timeZone: 'UTC' });
-    $('weather-time').textContent = `Dữ liệu lúc ${stamp} UTC · Tọa độ ${key} · ô thời tiết ~2 km`;
+    $('weather-time').textContent = `Cập nhật cuối: ${new Date(data._cache?.fetched_at || current.time * 1000).toLocaleString(globalThis.solLocale?.() || 'vi-VN', { timeZone: 'UTC' })} UTC · Dữ liệu lúc ${stamp} UTC · Tọa độ ${key} · ô thời tiết ~2 km`;
     $('weather-status').textContent = data._cache?.stale ? 'Đang dùng dữ liệu đã lưu do dịch vụ thời tiết tạm lỗi.' : 'Đã cập nhật dữ liệu thời tiết hiện tại.';
+    weatherUpdated = Date.now();
     weatherAvailable = true;
     renderWeather(current.cloud_cover, raining);
   } catch {
     if (request !== weatherRequest) return;
+    weatherUpdated = 0;
     weatherAvailable = false;
     $('clouds').innerHTML = '';
     $('weather-status').textContent = 'Không lấy được thời tiết mới. Kiểm tra kết nối và bấm cập nhật; chưa xác định được mây hoặc mưa.';

@@ -1,6 +1,7 @@
 // Both server routes share solar/location controls; only the calculator requests forecasts.
 globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname || '/');
 (() => {
+  document.querySelector('.annual-timeline').hidden = !globalThis.isSolarCalculator;
   if (!globalThis.isSolarCalculator) {
     document.querySelector('.weather-card').hidden = true;
     document.getElementById('location-status').textContent = 'Cho phép vị trí để xem hướng nắng tại nơi bạn đang đứng.';
