@@ -4,14 +4,14 @@
   let yaw = Math.PI-.6, pitch = .55, orbitKey = '', orbit = [], follow = false, previousHouse = 0, zoom = 1;
   const controls = { watts:$('energy-watts'), width:$('house-width'), length:$('house-length'), count:$('panel-count'), roof:$('roof-type'), bearing:$('panel-bearing'), tilt:$('panel-slope'), floors:$('panel-floors'), x:$('panel-x'), z:$('panel-z'), house:$('house-bearing'), left:$('neighbor-left'), right:$('neighbor-right'), leftRoof:$('neighbor-left-roof'), rightRoof:$('neighbor-right-roof') };
   $('module-catalog-body').innerHTML=G.moduleCatalog.map(m=>`<tr><td>${m.min}–${m.max} W</td><td>${Math.round(m.length*1000)} × ${Math.round(m.width*1000)} mm</td><td><a href="${m.source}" target="_blank" rel="noreferrer">${m.model}</a></td></tr>`).join('');
-  let capacityKey='',capacity=0;
+  let lastEnergyScene='',capacityKey='',capacity=0;
   let placedPanels=null, initialized=false, lastSaved='', recommendationKey='';
   let savedState=null;
   try {savedState=PlannerState.load(localStorage);} catch {}
   function snapshot() {
     return {version:1,config:configuration(),positions:getPositions(Number(controls.count.value)),view:{yaw,pitch,zoom},
       location:locationReady?{lat,lon,offset}:savedState?.location,
-      energy:{kwp:Number($('energy-kwp').value),loss:Number($('energy-loss').value),reserve:$('energy-reserve').checked}};
+      energy:{kwp:Number($('energy-kwp').value),loss:0,reserve:$('energy-reserve').checked,system:globalThis.getStoredEnergySystem()}};
   }
   function saveState() {
     if(!initialized)return;
@@ -57,6 +57,7 @@
   function configuration() {
     return Object.fromEntries(Object.entries(controls).map(([k,node])=>[k,Number(node.value)]));
   }
+  globalThis.getEnergyScene=()=>G.scene(configuration(),getPositions(Number(controls.count.value)));
   function normalizePanels() {
     const c=configuration(),module=G.moduleFor(c.watts);
     if(!module)return;
@@ -220,6 +221,9 @@
   };
   function render() {
     normalizePanels();
+    const sceneKey=JSON.stringify([configuration(),getPositions(Number(controls.count.value)),lat,lon,offset]);
+    if(initialized && lastEnergyScene && lastEnergyScene!==sceneKey)globalThis.invalidateSolarPrediction?.();
+    lastEnergyScene=sceneKey;
     saveState();
     if(recommendationKey && recommendationKey!==simulationKey()) {
       recommendationKey='';
@@ -252,30 +256,9 @@
     for(let a=0;a<360;a+=10)polygon([G.vector(a,0).map(v=>v*31),G.vector(a,0).map(v=>v*32)],null,'#8c9f8c',a%30===0?2:1);
     ['BẮC · 0°','ĐÔNG · 90°','NAM · 180°','TÂY · 270°'].forEach((text,i)=>{const p=G.vector(i*90,0).map(v=>v*34);const [x,y]=project(p);ctx.fillText(text,x,y);});
     const rotate=p=>G.rotate(p,c.house);
-    const mountingHeight=buildingHeight+(c.roof ? 3 : 0);
-    const positions=getPositions(c.count);
-    const localModules=G.individualPanels(positions,c.bearing-c.house,c.tilt,mountingHeight,G.moduleFor(c.watts));
-    const points=localModules.flat();
-    const minX=Math.min(...points.map(p=>p[0])),maxX=Math.max(...points.map(p=>p[0]));
-    const minZ=Math.min(...points.map(p=>p[2])),maxZ=Math.max(...points.map(p=>p[2]));
-    controls.x.min=-c.width/2-minX;controls.x.max=c.width/2-maxX;
-    controls.z.min=maxZ-c.length/2;controls.z.max=minZ+c.length/2;
-    const shiftX=Math.max(Number(controls.x.min),Math.min(Number(controls.x.max),c.x));
-    const shiftZ=-Math.max(Number(controls.z.min),Math.min(Number(controls.z.max),c.z));
-    controls.x.value=shiftX;controls.z.value=-shiftZ;
-    const modules=localModules.map(p=>p.map(([x,y,z])=>rotate([x+shiftX,y,z+shiftZ]))),panel=modules[0];
-    const neighbors=G.neighbors(c.left,c.right,c.length,c.leftRoof,c.rightRoof,c.width);
-    const buildings=[{x:0,z:0,width:c.width,depth:c.length,height:buildingHeight,main:true,thai:c.roof},...neighbors];
-    const buildingRoof=b=>[[b.x-b.width/2,b.height,-b.depth/2],[b.x+b.width/2,b.height,-b.depth/2],[b.x+b.width/2,b.height,b.depth/2],[b.x-b.width/2,b.height,b.depth/2]].map(rotate);
-    const roofFaces=buildings.filter(b=>b.thai).flatMap(b=>{
-      const left=b.x-b.width/2-.5,right=b.x+b.width/2+.5,end=b.depth/2+.5,h=b.height;
-      return [
-        [[left,h,-end],[b.x,h+3,-end],[b.x,h+3,end],[left,h,end]],
-        [[b.x,h+3,-end],[right,h,-end],[right,h,end],[b.x,h+3,end]],
-        [[left,h,-end],[right,h,-end],[b.x,h+3,-end]],
-        [[left,h,end],[b.x,h+3,end],[right,h,end]]
-      ].map(face=>face.map(rotate));
-    });
+    const positions=getPositions(c.count),shared=G.scene(c,positions);
+    const {modules,neighbors,buildings,roofFaces}=shared,panel=modules[0];
+    const buildingRoof=b=>shared.roofs[buildings.indexOf(b)];
     let sun=null;
     if(locationReady) {
       sun=Solar.position($('date').value,minute,lat,lon,offset);
@@ -324,11 +307,12 @@
     let shaded=0;
     const light=sun?G.incidence(sun,c.bearing,c.tilt):0;
     const mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
-    for(const module of modules) {
+    const exposure=sun?G.exposure(shared,sun):null;
+    for(const [moduleIndex,module] of modules.entries()) {
       const at=(u,v)=>mix(mix(module[0],module[1],u),mix(module[3],module[2],u),v);
       // Each photovoltaic cell participates in the same depth buffer as the roof.
       for(let row=0;row<6;row++)for(let col=0;col<6;col++) {
-        const blocked=sun && G.blocked(at((col+.5)/6,(row+.5)/6),sun,neighbors,c.house);
+        const blocked=exposure && !exposure.panels[moduleIndex].cells[row*6+col];
         if(blocked)shaded++;
         faces.push({p:[at(col/6,row/6),at((col+1)/6,row/6),at((col+1)/6,(row+1)/6),at(col/6,(row+1)/6)],color:blocked?'#142c3b':`hsl(204 43% ${24+light*24}%)`,stroke:'#81b1c2'});
       }
@@ -404,8 +388,8 @@
     $('energy-azimuth').value=controls.bearing.value;
     $('energy-tilt').value=controls.tilt.value;
     if(state.energy) {
-      $('energy-loss').value=state.energy.loss;
-      $('energy-reserve').checked=state.energy.reserve;
+      if(state.energy.system)globalThis.applyEnergySystem(state.energy.system);
+      $('energy-reserve').checked=state.energy.system ? state.energy.reserve : false;
     }
     if(state.view)({yaw,pitch,zoom}=state.view);
   }

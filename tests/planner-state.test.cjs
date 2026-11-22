@@ -45,3 +45,8 @@ const dimensioned={...state,config:{...config,watts:600,width:3,length:8,count:6
 assert.deepEqual(State.importBackup(State.exportBackup(dimensioned)),dimensioned);
 assert.equal(State.validate({...dimensioned,config:{...dimensioned.config,watts:701}}),null);
 assert.equal(State.validate({...dimensioned,positions:dimensioned.positions.map((p,i)=>i===0?{...p,x:1.4}:p)}),null);
+
+const energySystem=require('../dist/energy.js');
+const withSystem={...dimensioned,energy:{...dimensioned.energy,system:energySystem.defaultSystem()}};
+assert.deepEqual(State.importBackup(State.exportBackup(withSystem)),withSystem);
+assert.equal(State.validate({...withSystem,energy:{...withSystem.energy,system:{...withSystem.energy.system,inverter:{...withSystem.energy.system.inverter,efficiency:101}}}}),null);

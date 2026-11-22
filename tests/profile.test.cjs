@@ -17,3 +17,7 @@ doc.cookie='sol_pv_profile='+encodeURIComponent(JSON.stringify(profile));
 assert.equal(migrate(blocked,doc),null);assert(!doc.cookie.includes('Max-Age=0'),'Do not delete legacy data if migration fails');
 assert.equal(read(blocked),null);assert.throws(()=>write(profile,blocked));
 console.log('Profile checks passed: localStorage round-trip, validation, cookie migration, precedence and blocked storage.');
+
+const systemProfile={...profile,system:require('../dist/energy.js').defaultSystem()};
+write(systemProfile,storage);assert.deepEqual(read(storage),systemProfile);
+assert.throws(()=>write({...systemProfile,system:{losses:{},inverter:{}}},storage));

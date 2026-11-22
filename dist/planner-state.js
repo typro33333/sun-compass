@@ -21,6 +21,7 @@
     if(location && inRange(location.lat,-90,90) && inRange(location.lon,-180,180) && inRange(location.offset,-12,14) && Number.isInteger(location.offset*4))state.location={lat:location.lat,lon:location.lon,offset:location.offset};
     const energy=value.energy;
     if(energy && inRange(energy.kwp,.1,100000) && inRange(energy.loss,0,80) && typeof energy.reserve==='boolean')state.energy={kwp:config.watts?config.count*config.watts/1000:energy.kwp,loss:energy.loss,reserve:energy.reserve};
+    if(energy?.system!==undefined){try{if(!state.energy)return null;state.energy.system=root.Energy.validateSystem(energy.system);}catch{return null;}}
     return state;
   }
   function load(storage) {try{return validate(JSON.parse(storage.getItem(key)));}catch{return null;}}

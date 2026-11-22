@@ -27,3 +27,7 @@ const limited = createForecastProxy({ now:()=>time, perMinute:1, fetcher:async()
 await limited.handle(url);
 assert.equal((await limited.handle('http://localhost/api/forecast?' + query)).status,429);assert.equal(budgets,1);
 console.log('Proxy checks passed: 100 concurrent requests → 1 upstream call, grid reuse, TTL, stale fallback, 429 cooldown, budgets, validation.');
+
+const {normalizeForecast}=await import('../lib/forecast-proxy.mjs');
+const radiationQuery=new URLSearchParams({latitude:'10',longitude:'106',timezone:'UTC',timeformat:'unixtime',hourly:'global_tilted_irradiance,direct_normal_irradiance,cloud_cover,rain,showers',tilt:'15',azimuth:'0',start_date:'2026-06-21',end_date:'2026-06-22'});
+assert(normalizeForecast(radiationQuery,Date.parse('2026-06-21')).params.get('hourly').includes('direct_normal_irradiance'));

@@ -85,6 +85,9 @@ if (pathname === '/sol-calculartor') {
   node('house-bearing').value='360';node('house-bearing').input();
   assert.equal(Number(node('energy-azimuth').value),270,'Full rotation must restore geographic bearing');
   for(const side of ['left','right']) {
+    node('energy-result').hidden=false;
+    node('neighbor-'+side+'-add').onclick();
+    assert.equal(node('energy-result').hidden,true,'Neighbor geometry change must invalidate forecast even with unchanged DC capacity');
     for(let i=0;i<7;i++)node('neighbor-'+side+'-add').onclick();
     assert.equal(Number(node('neighbor-'+side).value),5);
     assert.equal(node('neighbor-'+side+'-add').disabled,true);
@@ -216,7 +219,7 @@ if (pathname === '/sol-calculartor') {
   imported.positions=[{x:-2,z:0},{x:2,z:0}];
   imported.location={lat:20,lon:105,offset:7};
   imported.view={yaw:2,pitch:.6,zoom:1.5};
-  imported.energy={kwp:1.2,loss:18,reserve:false};
+  imported.energy={kwp:1.2,loss:0,reserve:false,system:JSON.parse(JSON.stringify(context.readEnergySystem()))};
   node('planner-import-file').files=[{size:2000,text:async()=>JSON.stringify(exported)}];
   await node('planner-import-file').change();
   assert.equal(Number(node('panel-count').value),2);

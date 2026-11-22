@@ -307,3 +307,17 @@ Nhập **số tấm × W/tấm**, tổng kWp = số tấm đã bố trí × W / 
 Ví dụ: 6 tấm 600 W = 3,6 kWp; mỗi tấm dài 2,384 m, rộng 1,134 m. Mô hình, kéo thả, xoay, kiểm tra mép mái/va chạm và tìm bố trí đều dùng cùng kích thước. Xếp tự động chừa khe 20 mm, thử cả ngang/dọc; giới hạn hình học kiểm tra theo kích thước chưa nghiêng (bảo thủ), chưa trừ khoảng bảo trì. Sức chứa tự động là phương án tìm được, không khẳng định cực đại của mọi cách xếp rời rạc. Khi mái/kích thước đổi, xếp lại và giảm số tấm nếu cần, rồi tính lại kWp; kết quả dự báo cũ bị ẩn.
 
 Profile mới lưu W/tấm và số tấm; kWp được suy ra, không dùng số nhập tay cũ. Profile cũ chưa có W/tấm dùng tham chiếu 600 W khi mở, kiểm tra/xếp lại vị trí theo kích thước thật. Bảng nguồn được lưu trong `PanelGeometry.moduleCatalog`, không tải dữ liệu web mỗi lần mô phỏng.
+
+### Audit P0 dự báo điện — 22/11/2026
+
+Trước sửa: dự báo lấy GTI × kWp × hao hụt gộp; giảm dự phòng mây/mưa bật mặc định; bóng nhà bên chỉ dùng khi vẽ; chưa có giới hạn AC hoặc MPPT. Bộ acceptance `tests/energy-system.test.cjs` được viết và chạy trước triển khai: 10 ca thất bại vì thiếu API mới và mặc định giảm dự phòng; bộ regression cũ vẫn qua. Fixture bóng che sau đó được chỉnh về nhà bên 2 tầng để có khác biệt giữa hai tấm, thay vì cả hai cùng bị che hoàn toàn.
+
+Hiện render và dự báo cùng dùng `PanelGeometry.scene/exposure`: mái, nhà bên, hướng nhà, vị trí và góc xoay mỗi tấm. Lấy 36 điểm trên mỗi tấm, tích phân bước tối đa 15 phút trong từng giờ; diện tích nhận nắng là xấp xỉ lấy mẫu. Bóng che chỉ giảm thành phần trực tiếp `min(GTI, DNI × cos(góc tới))`; phần còn lại giữ nguyên. GTI và DNI là trung bình giờ trước timestamp theo [Open-Meteo](https://open-meteo.com/en/docs). Thiếu DNI thì báo lỗi, không âm thầm bỏ bóng che.
+
+Chuỗi tính: DC từ bức xạ → bóng che → nhiệt độ → dây dẫn → bụi → hao hụt khác → giới hạn MPPT → hiệu suất inverter → clipping AC. Mỗi hao hụt chỉ trừ một lần. Dự phòng thời tiết mặc định tắt, có thể bật riêng thành kịch bản thận trọng. Giao diện hiển thị tổng DC/AC, ngân sách hao hụt và bảng từng giờ/từng tấm. Chỉnh hình học làm ẩn dự báo cũ và hủy hiệu lực phản hồi đang chờ.
+
+Hybrid cho nhập AC định mức, PV DC tối đa, hiệu suất, số MPPT, cửa sổ điện áp, dòng tối đa mỗi MPPT và điện áp vận hành giả định. Công suất DC lắp vượt mức PV thì từ chối tính. Panel được chia luân phiên vào MPPT; giới hạn dòng áp dụng riêng từng MPPT theo P/V. Cấu hình mới được lưu và xuất/nhập backup. Profile cũ vẫn đọc được; hao hụt gộp cũ không cộng vào mô hình mới, dùng các mặc định hao hụt riêng và cần kiểm tra lại trong form.
+
+Giới hạn: nhiệt độ là tỷ lệ cố định do người dùng nhập, chưa có mô hình nhiệt tế bào; MPPT chưa mô tả đấu chuỗi, Voc/Isc hay kiểm tra thiết kế điện. AC từng tấm là phân bổ theo DC được nhận, không phải đo độc lập. Chưa mô phỏng bóng giữa các tấm, che khuất bầu trời khuếch tán, diode bypass/mismatch, pin lưu trữ hoặc giới hạn phát lên lưới. Không dùng kết quả thay hồ sơ thiết kế thi công.
+
+Kiểm tra tự động: `bun run test` (bóng che riêng từng tấm, bất biến khi xoay nhà, bảo toàn năng lượng, không giảm thời tiết hai lần, clipping theo giờ, MPPT, thiếu DNI, khoảng giờ lẻ, ban đêm, luồng UI bằng mock, phản hồi cũ, persistence và proxy); `bun run test:build` (bundle sản xuất trong DOM/canvas giả lập và ngân sách hiệu năng). Chưa kiểm tra giao diện bằng trình duyệt thật, API thời tiết trực tiếp hoặc đối chiếu sản lượng đo ngoài thực tế.
