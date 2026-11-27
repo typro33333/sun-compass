@@ -6,6 +6,14 @@
     if(!value || value.version!==1 || !value.config)return null;
     const config={};
     const input={width:8,...value.config};
+    if(input.outline!==undefined){
+      if(!root.PanelGeometry.validOutline(input.outline))return null;
+      config.outline=input.outline.map(p=>p.slice());
+    }
+    if(input.obstacles!==undefined) {
+      if(!Array.isArray(input.obstacles)||input.obstacles.length>20||input.obstacles.some(o=>!o||!['tree','tank','antenna'].includes(o.type)||!inRange(o.x,-30,30)||!inRange(o.z,-30,30)))return null;
+      config.obstacles=input.obstacles.map(({type,x,z})=>({type,x,z}));
+    }
     if(input.watts!==undefined){if(!root.PanelGeometry.moduleFor(input.watts))return null;config.watts=input.watts;}
     for(const [name,range] of Object.entries(limits)) {
       if(!inRange(input[name],...range))return null;
@@ -13,7 +21,7 @@
     }
     if(!Array.isArray(value.positions) || value.positions.length!==config.count || value.positions.some(p=>!p || !inRange(p.x,-15,15) || !inRange(p.z,-15,15) || (p.rotation!==undefined && ![0,90,180,270].includes(p.rotation))))return null;
     const positions=value.positions.map(({x,z,rotation})=>rotation===undefined?{x,z}:{x,z,rotation});
-    if(!root.PanelGeometry.validPlacement(positions,config.bearing-config.house,config.length,config.width,root.PanelGeometry.moduleFor(config.watts)||undefined))return null;
+    if(!root.PanelGeometry.validPlacement(positions,config.bearing-config.house,config.length,config.width,root.PanelGeometry.moduleFor(config.watts)||undefined,config.outline))return null;
     const state={version:1,config,positions};
     const view=value.view;
     if(view && inRange(view.yaw,-1e6,1e6) && inRange(view.pitch,.05,Math.PI/2) && inRange(view.zoom,.5,4))state.view={yaw:view.yaw,pitch:view.pitch,zoom:view.zoom};
@@ -32,7 +40,7 @@
   function backupState(value) {
     const state=validate(value);
     if(!state || ['view','location','energy'].some(name=>value[name]!==undefined && !state[name]))throw Error('Profile không hợp lệ hoặc có thông số ngoài giới hạn.');
-    if(!root.PanelGeometry.validPlacement(state.positions.map(p=>({...p,x:p.x+state.config.x,z:p.z-state.config.z})),state.config.bearing-state.config.house,state.config.length,state.config.width,root.PanelGeometry.moduleFor(state.config.watts)||undefined))throw Error('Vị trí pin vượt mép mái.');
+    if(!root.PanelGeometry.validPlacement(state.positions.map(p=>({...p,x:p.x+state.config.x,z:p.z-state.config.z})),state.config.bearing-state.config.house,state.config.length,state.config.width,root.PanelGeometry.moduleFor(state.config.watts)||undefined,state.config.outline))throw Error('Vị trí pin vượt mép mái.');
     return state;
   }
   function exportBackup(value) {

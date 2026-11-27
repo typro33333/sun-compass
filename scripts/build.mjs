@@ -37,7 +37,7 @@ let productionHtml = html.replace(/<script src="([^"]+)"><\/script>/g, (tag, nam
   return '<script src="app.js"></script>';
 });
 await cp(new URL('dist/favicon.svg', root), new URL('dist/favicon.svg', output));
-const routes = [['/','index.html'], ['/index.html','index.html'], ['/sol-calculartor','index.html'], ['/sol-calculartor/','index.html']];
+const routes = [['/','index.html'], ['/index.html','index.html'], ['/sol-calculator','index.html'], ['/sol-calculator/','index.html']];
 const extraPages = ['system-sizing.html','panel-dimensions.html'];
 const pageHtml = new Map(await Promise.all(extraPages.map(async name => [name, await readFile(new URL('dist/'+name, root),'utf8')])));
 const extraScripts = ['system-sizing.js','panel-geometry.js','info-page.js','i18n.js'];

@@ -1,5 +1,5 @@
 // Both server routes share solar/location controls; only the calculator requests forecasts.
-globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname || '/');
+globalThis.isSolarCalculator = /^\/sol-calculator\/?$/.test(location.pathname || '/');
 (() => {
   document.querySelector('.annual-timeline').hidden = !globalThis.isSolarCalculator;
   if (!globalThis.isSolarCalculator) {

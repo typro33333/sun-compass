@@ -22,8 +22,8 @@ const assets = new Map(process.env.SOL_BUILD_ASSETS ? JSON.parse(process.env.SOL
   ['/panel-dimensions/', 'panel-dimensions.html'],
   ['/info-page.js', 'info-page.js'],
 
-  ['/sol-calculartor', 'index.html'],
-  ['/sol-calculartor/', 'index.html'],
+  ['/sol-calculator', 'index.html'],
+  ['/sol-calculator/', 'index.html'],
   ['/calculator-page.js', 'calculator-page.js'],
   ['/panel-geometry.js', 'panel-geometry.js'],
   ['/annual-placement.js', 'annual-placement.js'],

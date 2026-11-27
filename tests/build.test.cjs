@@ -79,7 +79,7 @@ assert.match(node('rise-time').textContent,/\d{2}:\d{2}/);
 assert.match(node('set-time').textContent,/\d{2}:\d{2}/);
 node('time').input({target:{value:'600'}});
 assert.equal(node('selected-time').textContent,'10:00');
-if (pathname === '/sol-calculartor') {
+if (pathname === '/sol-calculator') {
   assert.equal(node('panel-planner').hidden,false);
   const initialScene=context.getEnergyScene();
   assert.equal(context.getEnergyScene(),initialScene,'Unchanged geometry reuses the scene');
@@ -193,6 +193,40 @@ if (pathname === '/sol-calculartor') {
   node('panel-arrange').onclick();node('layout-auto').onclick();
   node('layout-rotate').onclick();node('layout-apply').onclick();
   assert.equal(JSON.parse(storage.get('sol-planner-v1')).positions[0].rotation,90,'Applied panel rotation persists');
+  node('neighbor-left').value=2;node('neighbor-left').input();
+  node('neighbor-right').value=3;node('neighbor-right').input();
+  node('panel-arrange').onclick();
+  node('layout-tree').onclick();
+  node('layout-tank').onclick();
+  const plane=node('layout-plane');
+  context.DOMPoint=class {constructor(x,y){this.x=x;this.y=y;}matrixTransform(){return this;}};
+  plane.getScreenCTM=()=>({inverse:()=>({})});
+  plane.pointerdown({target:{dataset:{object:'1'}},pointerId:7,clientX:0,clientY:0,preventDefault(){}});
+  plane.pointermove({pointerId:7,clientX:0,clientY:-2});
+  plane.pointerup({});
+  assert.match(plane.innerHTML,/Nhà bên trái/);
+  assert.match(plane.innerHTML,/Nhà bên phải/);
+  node('layout-antenna').onclick();
+  const neighborX=Number(node('house-width').value)/2+4;
+  plane.pointerdown({target:{dataset:{object:'2'}},pointerId:8,clientX:0,clientY:0,preventDefault(){}});
+  plane.pointermove({pointerId:8,clientX:-neighborX,clientY:0});plane.pointerup({});
+  node('layout-apply').onclick();
+  node('panel-arrange').onclick();
+  node('layout-shape').onclick();
+  const halfWidth=Number(node('house-width').value)/2;
+  const halfLength=Number(node('house-length').value)/2;
+  plane.pointerdown({target:{dataset:{corner:'0'}},pointerId:9,preventDefault(){}});
+  plane.pointermove({pointerId:9,clientX:halfWidth-.3,clientY:halfLength});
+  assert.equal(node('layout-status').textContent.split(' m').length,5);
+  plane.pointerup({});
+  node('layout-apply').onclick();
+  const savedOutline=JSON.parse(storage.get('sol-planner-v1')).config.outline;
+  assert.ok(Math.abs(savedOutline[0][0]+.5-.3/(2*halfWidth))<1e-8);
+  assert.equal(context.getEnergyScene().config.obstacles[2].x,neighborX);
+  assert.equal(context.getEnergyScene().config.obstacles[1].z,2);
+  assert.equal(JSON.parse(storage.get('sol-planner-v1')).config.obstacles.length,3);
+  node('panel-arrange').onclick();node('layout-tree').onclick();node('layout-cancel').onclick();
+  assert.equal(context.getEnergyScene().config.obstacles.length,3);
   node('panel-arrange').onclick();node('layout-rotate').onclick();node('layout-cancel').onclick();
   assert.equal(JSON.parse(storage.get('sol-planner-v1')).positions[0].rotation,90,'Cancel preserves committed rotation');
 
@@ -309,7 +343,7 @@ return storage;
 }
 (async()=>{
 await checkPage('/');
-const storage=await checkPage('/sol-calculartor');
-await checkPage('/sol-calculartor',storage,true);
+const storage=await checkPage('/sol-calculator');
+await checkPage('/sol-calculator',storage,true);
 console.log('Production bundle checks passed: startup, simulation reload, canceled drafts, scene recommendations, stale-result rejection and time slider.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

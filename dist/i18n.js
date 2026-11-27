@@ -1,8 +1,23 @@
 const solTranslations = [
+  ['Chỉnh góc mái','Edit roof corners'],['Góc mái','Roof corner'],['Tấm pin vượt đường bao mái. Hãy di chuyển hoặc xếp lại pin.','Panels extend outside the roof. Move or rearrange them.'],
+  ['Ẩn đường mặt trời','Hide sun path'],
+  ['Hiện đường mặt trời','Show sun path'],
+  ['Mặt phẳng sắp xếp pin, cửa chính ở phía dưới','Panel layout, front door at the bottom'],
+  ['đã xét hướng nhà, mái và các vật cản trong mô phỏng.','accounts for the house bearing, roofs and obstacles in the simulation.'],
+  ['Thêm vật cản','Add obstacles'],['+ Tấm pin','+ Panel'],['Xóa tấm','Delete panel'],['Xoay 90°','Rotate 90°'],
+  ['Nhà chính · Cửa chính','Main house · Front door'],
+  ['Thêm ăng-ten (3 m)','Add antenna (3 m)'],
+  ['Ăng-ten','Antenna'],
+  ['Diện tích pin bị che nắng','Shaded panel area'],
+  ['Thêm cây lớn (10 m)','Add large tree (10 m)'],
+  ['Thêm bồn nước (2 m)','Add water tank (2 m)'],
+  ['Xóa vật cản','Remove obstacle'],
+  ['Cây lớn','Large tree'],
+  ['Bồn nước','Water tank'],
   ["Kích thước tấm pin", "Panel dimensions"],
   ["Gợi ý hệ thống theo nhu cầu", "System sizing by demand"],
   ["La bàn mặt trời", "Sun compass"],
-  ["Mô phỏng & tính sản lượng", "Simulation & energy forecast"],
+  ["Mô phỏng hướng nắng", "Sun direction simulation"],
   ["Điều hướng", "Navigation"],
   ["Dùng múi giờ thiết bị", "Use device time zone"],
   ["Múi giờ mặc định theo thiết bị. Có thể chỉnh thủ công trong menu.", "The time zone defaults to your device. You can adjust it manually in the menu."],
@@ -679,7 +694,6 @@ solTranslations.push(
 );
 solTranslations.push(['Mặc định UTC+7. Có thể chỉnh múi giờ trong menu.', 'Default UTC+7. Adjust the UTC offset in the menu.']);
 solTranslations.push(
- ['Tính toán điện mặt trời ↗', 'Solar calculator ↗'],
  ['← Về la bàn', '← Back to compass'],
  ['Đặt pin. Đón trọn nắng.', 'Place panels. Follow the sunlight.'],
  ['Bố trí trên mái, khám phá ánh sáng và dự đoán điện năng trong một không gian riêng.', 'Plan your roof, explore sunlight and estimate energy in one dedicated space.'],

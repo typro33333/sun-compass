@@ -108,3 +108,37 @@ test('render masks agree with forecast per panel at four local times',()=>{
  }
 });
 if(failures)process.exitCode=1;
+test('a tree or rooftop tank reduces energy only while blocking the sun',()=>{
+ const c={...config,count:1},positions=[{x:0,z:0}];
+ function energy(obstacles,dni=800){
+  const scene=G.scene({...c,obstacles},positions);
+  return E.estimateSystem(data(1000,dni),start,start+3600,{...system,scene,sunAt:()=>({azimuth:90,altitude:30})}).kwh;
+ }
+ const clear=energy([]);
+ for(const [type,x] of [['tree',8],['tank',1.1]]){
+  assert(energy([{type,x,z:0}])<clear);
+  near(energy([{type,x:-x,z:4}]),clear);
+  near(energy([{type,x,z:0}],0),clear);
+ }
+});
+if(failures)process.exitCode=1;
+test('object masks reconcile with direct energy loss and recommended orientation',()=>{
+ const pos=[{x:0,z:0}],sun={azimuth:90,altitude:30};
+ const samples=[sun,{azimuth:150,altitude:55},{azimuth:230,altitude:30}];
+ for(const [type,x,z,blocked] of [['tree',8,0,30],['tank',1.1,0,18],['antenna',1.1,.1,6]]) {
+  const c={...config,count:1,obstacles:[{type,x,z}]},scene=G.scene(c,pos);
+  const cells=G.renderCells(scene,sun).cells;
+  assert.equal(cells.filter(cell=>!cell.lit).length,blocked);
+  const energy=E.estimateSystem(data(1000,800),start,start+3600,{...system,scene,sunAt:()=>sun});
+  near(energy.shadeLossKwh,.48*blocked/36);near(energy.kwh,.6-.48*blocked/36);
+  const search=G.recommendScene(samples,c,pos);let result;
+  do{result=search.next();}while(!result.done);
+  const best=result.value,updated=G.scene({...c,bearing:best.bearing,tilt:best.tilt},pos);
+  const score=s=>samples.reduce((sum,sun)=>{
+    const mask=G.exposure(s,sun);
+    return sum+mask.incidence*Math.sin(sun.altitude*Math.PI/180)*mask.panels[0].litFraction;
+  },0);
+  near(score(updated),best.score);near(score(scene),best.baseline);assert(best.score>=best.baseline);
+ }
+});
+if(failures)process.exitCode=1;

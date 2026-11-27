@@ -190,3 +190,50 @@ for(const watts of [550,600,700])for(const bearing of [0,32,45,90,122,173,295])f
  assert(G.validPlacement(positions,bearing,20,6,module),'Full-size panels must stay within roof without overlap');
 }
 console.log('6 × 20 m roof packing: 18 panels at 550/600/700 W, 20 panels at 550/600 W across rotations passed.');
+
+{
+  const G=require('../dist/panel-geometry.js');
+  const c={width:8,length:12,count:1,watts:600,house:45,bearing:45,tilt:15,floors:0,roof:0,left:2,right:3,leftRoof:0,rightRoof:1,x:0,z:0};
+  const positions=[{x:0,z:0}];
+  for(const [type,x,height] of [['tank',-8,6.4],['antenna',8,12.6]]) {
+    const scene=G.scene({...c,obstacles:[{type,x,z:0}]},positions);
+    const ys=scene.obstacleFaces.flatMap(face=>face.p.map(vertex=>vertex[1]));
+    assert(Math.abs(Math.min(...ys)-height)<1e-8);
+    assert(Math.abs(Math.max(...ys)-height-(type==='tank'?2:3))<1e-8);
+  }
+  assert.throws(()=>G.scene(c,[{x:8,z:0}]),'Panels cannot be placed on a neighboring roof');
+  console.log('Neighbor rooftop object heights, rotation and main-roof panel boundary passed.');
+}
+
+{
+  const G=require('../dist/panel-geometry.js');
+  for(const width of [3,8])for(const house of [0,127])for(const neighbor of [false,true]){
+    const roofX=neighbor?width/2+4:0,roofWidth=neighbor?8:width,height=neighbor?9.6:3.2;
+    for(const dx of [-roofWidth/2+.73,-.35,0,.35,roofWidth/2-.73]){
+      const x=roofX+dx;
+      const c={width,length:12,count:1,watts:600,house,bearing:house,tilt:15,floors:0,roof:1,left:0,right:3,leftRoof:0,rightRoof:1,x:0,z:0,obstacles:[{type:'tank',x,z:2}]};
+      const scene=G.scene(c,[{x:0,z:-2}]);
+      let clearance=Infinity;
+      for(const face of scene.obstacleFaces)for(const p of face.p){
+        const local=G.rotate(p,-house);
+        const gap=p[1]-G.roofHeight(local[0]-roofX,height,true,roofWidth);
+        assert(gap>=-1e-8,'Tank and feet must clear the sloped roof');
+        clearance=Math.min(clearance,gap);
+      }
+      assert(Math.abs(clearance)<1e-8,'Feet must touch the roof');
+    }
+  }
+}
+
+{
+  const outline=[[-.1,-.5],[.5,-.5],[.5,.5],[-.5,.5]];
+  const clipped=[{x:-3,z:-4}];
+  assert(G.validOutline(outline));
+  assert(G.validPlacement(clipped,0,12,8));
+  assert(!G.validPlacement(clipped,0,12,8,G.moduleFor(550),outline));
+  for(const bearing of [0,45,90]){
+    const packed=G.packPanels(12,bearing,12,8,G.moduleFor(550),outline);
+    assert(packed.length>0);
+    assert(G.validPlacement(packed,bearing,12,8,G.moduleFor(550),outline));
+  }
+}

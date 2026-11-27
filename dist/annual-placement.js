@@ -25,7 +25,7 @@
   function valid(positions,c,spacing=.02) {
     const module=G().moduleFor(c.watts);
     // Inflate each footprint by half the gap on every side: conservative edge clearance too.
-    return G().validPlacement(positions,c.bearing-c.house,c.length,c.width,{...module,width:module.width+spacing,length:module.length+spacing});
+    return G().validPlacement(positions,c.bearing-c.house,c.length,c.width,{...module,width:module.width+spacing,length:module.length+spacing},c.outline);
   }
   function candidates(config,{spacing=.02,step=1}={}) {
     if(!Number.isFinite(spacing)||spacing<0||spacing>2||!Number.isFinite(step)||step<1||step>5)throw Error('Khoảng cách/lưới ứng viên không hợp lệ.');
@@ -49,7 +49,7 @@
     const c={...config,x:0,z:0},manualPositions=positions.map(p=>({...p,x:p.x+config.x,z:p.z-config.z}));
     const manual=evaluate(c,manualPositions,system,climate),spots=candidates(c,{spacing,step});
     const seen=new Set(spots.map(p=>JSON.stringify([p.x,p.z,p.rotation||0])));
-    for(const p of [...manualPositions,...G().packPanels(c.count,c.bearing-c.house,c.length,c.width,G().moduleFor(c.watts))]) {
+    for(const p of [...manualPositions,...G().packPanels(c.count,c.bearing-c.house,c.length,c.width,G().moduleFor(c.watts),c.outline)]) {
       const key=JSON.stringify([p.x,p.z,p.rotation||0]);if(!seen.has(key)&&valid([p],c,spacing)){spots.push({...p});seen.add(key);}
     }
     const ranking=[];

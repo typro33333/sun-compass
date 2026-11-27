@@ -14,6 +14,8 @@
     pendingFrame=true;
     requestAnimationFrame(()=>{pendingFrame=false;render();});
   }
+  let showSunPath=true;
+  let obstacles=[],outline=null;
   let savedState=null;
   try {savedState=PlannerState.load(localStorage);} catch {}
   function snapshot() {
@@ -44,14 +46,16 @@
   }
   function getPositions(count,automatic=false) {
     const c=configuration();
-    const key=JSON.stringify([count,automatic,c.bearing-c.house,c.length,c.width,c.watts,placedPanels]);
+    const key=JSON.stringify([count,automatic,c.bearing-c.house,c.length,c.width,c.watts,c.outline,placedPanels]);
     if(key===positionCacheKey)return positionCache;
     const module=G.moduleFor(c.watts);
-    const positions=!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,module)
-      ? placedPanels : G.packPanels(count,c.bearing-c.house,c.length,c.width,module);
+    const positions=!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,module,c.outline)
+      ? placedPanels : G.packPanels(count,c.bearing-c.house,c.length,c.width,module,c.outline);
     positionCacheKey=key;positionCache=positions;return positions;
   }
-  const openLayout=createPanelLayoutEditor({getConfiguration:configuration,getPositions,apply:positions=>{
+  const openLayout=createPanelLayoutEditor({getConfiguration:configuration,getPositions,apply:(positions,objects,boundary)=>{
+    outline=boundary;
+    obstacles=objects;
     placedPanels=positions.map(p=>({...p}));controls.count.value=positions.length;
     controls.x.value=controls.z.value=0;labels();render();
   }});
@@ -67,7 +71,7 @@
     if(e.key==='Escape') { $('planner-settings').open=false; }
   });
   function configuration() {
-    return Object.fromEntries(Object.entries(controls).map(([k,node])=>[k,Number(node.value)]));
+    return {...Object.fromEntries(Object.entries(controls).map(([k,node])=>[k,Number(node.value)])),...(outline?{outline}:{}),...(obstacles.length?{obstacles}: {})};
   }
   function sharedScene() {
     const c=configuration(),positions=getPositions(c.count),key=JSON.stringify([c,positions]);
@@ -80,13 +84,13 @@
     if(key===normalizationKey)return;
     const c=configuration(),module=G.moduleFor(c.watts);
     if(!module)return;
-    if(!placedPanels || placedPanels.length!==c.count || !G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,module)) {
-      placedPanels=G.packPanels(c.count,c.bearing-c.house,c.length,c.width,module);
+    if(!placedPanels || placedPanels.length!==c.count || !G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,module,c.outline)) {
+      placedPanels=G.packPanels(c.count,c.bearing-c.house,c.length,c.width,module,c.outline);
       controls.count.value=placedPanels.length;controls.x.value=controls.z.value=0;
     }
     const count=placedPanels.length,kwp=count*c.watts/1000;
-    const nextCapacityKey=JSON.stringify([c.width,c.length,c.bearing-c.house,c.watts]);
-    if(nextCapacityKey!==capacityKey){capacityKey=nextCapacityKey;capacity=G.packPanels(30,c.bearing-c.house,c.length,c.width,module).length;}
+    const nextCapacityKey=JSON.stringify([c.width,c.length,c.bearing-c.house,c.watts,c.outline]);
+    if(nextCapacityKey!==capacityKey){capacityKey=nextCapacityKey;capacity=G.packPanels(30,c.bearing-c.house,c.length,c.width,module,c.outline).length;}
     $('energy-count').max=controls.count.max=30;
     if(initialized && Math.abs(Number($('energy-kwp').value)-kwp)>1e-9)globalThis.invalidateSolarPrediction?.();
     $('energy-count').value=count;$('energy-kwp').value=kwp.toFixed(3);
@@ -168,7 +172,7 @@
   const placementKey=()=>simulationKey()+JSON.stringify(['inverter-ac','inverter-pv','inverter-efficiency','mppt-count','mppt-min','mppt-max','mppt-current','mppt-operating','loss-temperature','loss-wiring','loss-soiling','loss-other','placement-poa','placement-gap'].map(id=>$(id).value));
   function planSvg(c,positions) {
     const polygons=G.individualPanels(positions.map(p=>({...p,x:p.x+c.x,z:p.z-c.z})),c.bearing-c.house,0,0,G.moduleFor(c.watts));
-    return `<svg viewBox="${-c.width/2-.3} ${-c.length/2-.3} ${c.width+.6} ${c.length+.6}" role="img" aria-label="Bố trí trên mái"><rect x="${-c.width/2}" y="${-c.length/2}" width="${c.width}" height="${c.length}" fill="#dde8df"/>${polygons.map((p,i)=>`<polygon points="${p.map(v=>v[0]+','+v[2]).join(' ')}" fill="#235878" stroke="#99c9d2" stroke-width=".03"/><text x="${positions[i].x+c.x}" y="${positions[i].z-c.z}" text-anchor="middle" fill="white" font-size=".28">${i+1}</text>`).join('')}</svg>`;
+    return `<svg viewBox="${-c.width/2-.3} ${-c.length/2-.3} ${c.width+.6} ${c.length+.6}" role="img" aria-label="Bố trí trên mái"><polygon points="${G.roofOutline(c).map(([x,z])=>[-x,-z].join(',')).join(' ')}" fill="#dde8df"/>${polygons.map((p,i)=>`<polygon points="${p.map(v=>(-v[0])+','+(-v[2])).join(' ')}" fill="#235878" stroke="#99c9d2" stroke-width=".03"/><text x="${-(positions[i].x+c.x)}" y="${-(positions[i].z-c.z)}" text-anchor="middle" fill="white" font-size=".28">${i+1}</text>`).join('')}</svg>`;
   }
   function previewPlacement(c,positions,message,apply) {
     pendingPlacement={key:placementKey(),apply};
@@ -247,7 +251,7 @@
       $('energy-result').hidden=true; $('energy-preview').hidden=true;
       $('energy-status').textContent='Đã áp dụng gợi ý theo mô phỏng. Bấm tính để cập nhật sản lượng.';
       const gain=best.baseline>0?`Chỉ số đón nắng hình học tăng khoảng ${Math.max(0,(best.score/best.baseline-1)*100).toFixed(1)}% so với cấu hình trước. `:'';
-      $('panel-advice').textContent=`Đã áp dụng gợi ý ${annual?'năm '+year:'ngày '+$('date').value}: hướng ${best.bearing}° từ Bắc, nghiêng ${best.tilt}°. ${layout?'Đã tự xếp từng tấm trên mái, so sánh bố trí gom cụm và rời rạc để tránh bóng che; áp dụng phương án tốt nhất tìm được.':'Giữ vị trí từng tấm;'} đã xét hướng nhà và bóng che nhà bên, gồm mái Thái. ${gain}${annual?'Lấy mẫu 12 ngày giữa tháng, gia quyền theo số ngày từng tháng; ':''}Bước thời gian 30 phút, tìm góc thô rồi tinh chỉnh 5°, kiểm tra 36 ô/tấm. Đây là ước tính hình học, chưa xét thời tiết hoặc bóng che giữa các tấm; không phải mức tăng kWh.`;
+      $('panel-advice').textContent=`Đã áp dụng gợi ý ${annual?'năm '+year:'ngày '+$('date').value}: hướng ${best.bearing}° từ Bắc, nghiêng ${best.tilt}°. ${layout?'Đã tự xếp từng tấm trên mái, so sánh bố trí gom cụm và rời rạc để tránh bóng che; áp dụng phương án tốt nhất tìm được.':'Giữ vị trí từng tấm;'} đã xét hướng nhà, mái và các vật cản trong mô phỏng. ${gain}${annual?'Lấy mẫu 12 ngày giữa tháng, gia quyền theo số ngày từng tháng; ':''}Bước thời gian 30 phút, tìm góc thô rồi tinh chỉnh 5°, kiểm tra 36 ô/tấm. Đây là ước tính hình học, chưa xét thời tiết hoặc bóng che giữa các tấm; không phải mức tăng kWh.`;
       const why=best.explanation;
       const improvement=best.baseline>0?`${Math.max(0,(best.score/best.baseline-1)*100).toFixed(1)}%`:'từ mức không đón được nắng trực tiếp';
       $('panel-explanation-text').textContent=`Với mái ${c.width} × ${c.length} m và ${c.count} tấm, phương án chọn hướng ${best.bearing}° và nghiêng ${best.tilt}° vì đạt chỉ số đón nắng tốt nhất trong các phương án đã thử ${annual?'qua 12 ngày đại diện cho các tháng trong năm':'trong ngày đang chọn'}. ${why.moved?`Đã chuyển ${why.moved} tấm để sử dụng các vùng mái thuận lợi hơn.`:'Giữ vị trí các tấm vì chưa tìm thấy cách dịch chuyển tốt hơn.'} ${why.neighbors?`Phần đón nắng bị nhà bên che (có gia quyền theo góc nắng) thay đổi từ ${(why.beforeShade*100).toFixed(1)}% thành ${(why.afterShade*100).toFixed(1)}%.`:'Mô hình hiện tại không có nhà bên gây bóng che; lựa chọn chủ yếu dựa vào hướng và độ nghiêng.'} ${best.score>best.baseline+1e-9?`Chỉ số đón nắng tăng ${improvement}.`:'Chưa tìm được phương án có chỉ số cao hơn cấu hình hiện tại.'} Các tấm được giữ trong mép mái và không chồng nhau. Đây là so sánh hình học, không phải mức tăng điện năng; chưa tính thời tiết, bóng giữa các tấm và lối đi bảo trì.`;
@@ -272,7 +276,7 @@
     const c=configuration();
     let system;
     try {system=globalThis.readEnergySystem();}catch(error){$('panel-suggestion-status').textContent=error.message;return;}
-    const positions=G.packPanels(c.count,0,c.length,c.width,G.moduleFor(c.watts)).sort((a,b)=>a.z-b.z || a.x-b.x);
+    const positions=G.packPanels(c.count,0,c.length,c.width,G.moduleFor(c.watts),c.outline).sort((a,b)=>a.z-b.z || a.x-b.x);
     if(positions.length!==c.count){$('panel-suggestion-status').textContent=`Chỉ xếp được ${positions.length}/${c.count} tấm thành hàng. Hãy tăng kích thước mái hoặc chọn gợi ý tối ưu.`;return;}
     // Keep the existing round-robin tracker assignment, but interleave spatial
     // groups so panels sharing a tracker occupy consecutive roof rows.
@@ -380,7 +384,7 @@
 
       if(sun.altitude>0) {
         ctx.beginPath();
-        for (const face of [...buildings.map(buildingRoof), ...roofFaces, ...modules]) {
+        for (const face of [...buildings.map(buildingRoof), ...roofFaces, ...modules,...shared.obstacleFaces.map(f=>f.p)]) {
           const points=G.shadow(face,sun).map(project);
           // Consistent winding keeps overlapping silhouettes filled as a union.
           const area=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p[0]*q[1]-q[0]*p[1];},0);
@@ -395,7 +399,7 @@
     } else {
       $('panel-incidence').textContent='Chờ vị trí';$('panel-angle').textContent='—';
     }
-    const faces=[];
+    const faces=[...shared.obstacleFaces];
     for(const building of buildings) {
       const top=buildingRoof(building);
       for(let floor=0;floor<Math.round(building.height/3.2);floor++) {
@@ -410,10 +414,15 @@
 
     roofFaces.forEach((p,i)=>faces.push({p,color:['#aa654c','#cc8760','#d9b89b','#d9b89b'][i%4]}));
     // Two door leaves on the north-facing wall identify the actual house bearing.
+    const [frontA,frontB]=G.roofOutline(c),dx=frontB[0]-frontA[0],dz=frontB[1]-frontA[1],span=Math.hypot(dx,dz);
+    function onDoor([x,y,z]){
+      const along=x*Math.min(1,span/2.4),out=z+c.length/2;
+      return rotate([(frontA[0]+frontB[0])/2+(along*dx-out*dz)/span,y,(frontA[1]+frontB[1])/2+(along*dz+out*dx)/span]);
+    }
     for(const [left,right] of [[-1.1,0],[0,1.1]]) {
-      faces.push({p:[[left,.05,-c.length/2-.025],[right,.05,-c.length/2-.025],[right,2.55,-c.length/2-.025],[left,2.55,-c.length/2-.025]].map(rotate),color:'#805234',stroke:'#d2b486'});
+      faces.push({p:[[left,.05,-c.length/2-.025],[right,.05,-c.length/2-.025],[right,2.55,-c.length/2-.025],[left,2.55,-c.length/2-.025]].map(onDoor),color:'#805234',stroke:'#d2b486'});
       const handle=left===0?.14:-.14;
-      faces.push({p:[[handle,1.1,-c.length/2-.05],[handle,1.5,-c.length/2-.05]].map(rotate),stroke:'#f5dd94'});
+      faces.push({p:[[handle,1.1,-c.length/2-.05],[handle,1.5,-c.length/2-.05]].map(onDoor),stroke:'#f5dd94'});
     }
     faces.forEach(face=>{face.stroke ||= '#879b96';});
     let shaded=0;
@@ -435,7 +444,7 @@
     $('panel-shade').textContent=sun && sun.altitude>0 && light<=1e-12 ? 'Quay khỏi nắng' : sun && sun.altitude>0 ? `≈ ${Math.round(shaded/(36*c.count)*100)}%` : '—';
     if(sun)$('panel-incidence').textContent=`${Math.round(light*(1-shaded/(36*c.count))*100)}%`;
     // Draw the enlarged celestial arc over geometry so tall houses cannot hide it.
-    if(orbit.length && locationReady) {ctx.setLineDash([5,4]);polygon(orbit,null,'#bd8a23',2.5);ctx.setLineDash([]);}
+    if(showSunPath && orbit.length && locationReady) {ctx.setLineDash([5,4]);polygon(orbit,null,'#bd8a23',2.5);ctx.setLineDash([]);}
     if(locationReady) {
       for(const [time,label,color] of [[events.rise,'Mọc','#397c58'],[events.set,'Lặn','#ba7247']]) {
         if(time===null)continue;
@@ -484,6 +493,11 @@
   });
   $('panel-zoom-in').onclick=()=>setZoom(zoom*1.2);
   $('panel-zoom-out').onclick=()=>setZoom(zoom/1.2);
+  $('panel-orbit-toggle').onclick=()=>{
+    showSunPath=!showSunPath;
+    $('panel-orbit-toggle').textContent=showSunPath?'Ẩn đường mặt trời':'Hiện đường mặt trời';
+    scheduleRender();
+  };
   $('panel-view-front').onclick=()=>{manual();yaw=Math.PI+Number(controls.house.value)*R;pitch=.15;render();};
   manual();
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else scheduleRender();});
@@ -492,7 +506,9 @@
   globalThis.renderPanelPlanner=scheduleRender;
   function applyProfile(state) {
     controls.watts.value=state.config.watts || 600;
-    for(const [name,value] of Object.entries(state.config))controls[name].value=value;
+    outline=state.config.outline||null;
+    obstacles=state.config.obstacles||[];
+    for(const [name,value] of Object.entries(state.config))if(controls[name])controls[name].value=value;
     placedPanels=state.positions;
     previousHouse=Number(controls.house.value);
     $('energy-azimuth').value=controls.bearing.value;

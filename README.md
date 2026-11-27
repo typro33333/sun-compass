@@ -14,7 +14,7 @@ Mở http://localhost:5173. GPS và cảm biến yêu cầu HTTPS hoặc localho
 ## Trang tính toán riêng
 
 - `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
-- `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
+- `/sol-calculator` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
 - Trang tính toán chỉ hiển thị mô phỏng nhà; la bàn 2D/3D riêng được giữ ở trang chủ. Nút bật cảm biến nằm trong nhóm **La bàn thiết bị**. Nút **Theo la bàn thiết bị** trên mô hình nhà dùng chung cảm biến; kéo/phím mũi tên chuyển sang xoay tay. Thanh ngày/tháng đặt cạnh thanh thời gian, cập nhật đồng thời hai mô hình.
 - Xoay mặt tiền nhà 0–360° sẽ xoay cả pin và hai nhà bên; hướng pin trong dự báo vẫn tính từ Bắc. Nhà trái/phải được xác định khi đứng trong nhà nhìn ra mặt tiền, chỉnh độc lập 0–5 tầng (0 để bỏ nhà), mỗi tầng 3,2 m, áp sát nhà chính (không có khoảng cách).
 - Desktop đặt mô phỏng bên trái, nhóm điều chỉnh thu gọn bên phải; mobile xếp mô phỏng, thanh thời gian rồi các nhóm điều chỉnh. Cấu hình điện và kết quả nằm bên dưới mô phỏng. Khung 3D được thu gọn; vòng cung và mặt trời hiển thị trên lớp riêng để nhà cao không che khuất. Bóng che trên pin lấy mẫu 36 ô và dò tia tới mặt trời qua hai khối nhà bên, chưa trừ vào kWh dự báo.
@@ -105,7 +105,7 @@ API miễn phí Open-Meteo dành cho phi thương mại, có quota riêng và c�
 ### Trang tính toán riêng
 
 - `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
-- `/sol-calculartor` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
+- `/sol-calculator` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
 - Mô hình mái phẳng 8 × 10 m, tầng trệt + 0–3 lầu, mỗi tầng 3,2 m. Thêm từng lầu, xoay góc nhìn bằng kéo/phím mũi tên, chỉnh hướng mặt pin 0–360°, nghiêng 0–90° và dịch cụm pin trên mái.
 - Hướng/góc nghiêng được đồng bộ với biểu mẫu dự báo. Khi chỉnh thông số, kết quả cũ bị ẩn và yêu cầu đang chờ bị hủy; bấm tính để lấy dự báo mới.
 - Chọn ngày/tháng và vị trí, kéo thanh thời gian hoặc phát từ bình minh tới hoàng hôn. Có thể nhập tọa độ thủ công nếu GPS bị từ chối. Các phép tính hình học vẫn chạy khi API thời tiết không khả dụng.
@@ -266,7 +266,7 @@ Trong dropdown, **Nhà chính & mái** cho phép đổi chiều dài 8–30 m (n
 
 Dữ liệu gắn với trình duyệt và địa chỉ website, chưa đồng bộ tài khoản/thiết bị; xóa dữ liệu website sẽ xóa mô phỏng. Trình duyệt không cho lưu sẽ có thông báo ngay dưới mô hình. Dữ liệu sai định dạng/phiên bản hoặc ngoài giới hạn không được khôi phục. Không lưu riêng một mã định danh client hay gửi cấu hình nhà lên máy chủ.
 
-Trang `/sol-calculartor` ẩn cả mục **Thời gian có ánh sáng**, vẫn giữ thời gian mọc/lặn ở phần điều khiển. Kiểm thử lưu/khôi phục: `node tests/planner-state.test.cjs`; kiểm thử tải lại bản build, hủy bản nháp và kết quả gợi ý hết hạn: `bun run test:build`.
+Trang `/sol-calculator` ẩn cả mục **Thời gian có ánh sáng**, vẫn giữ thời gian mọc/lặn ở phần điều khiển. Kiểm thử lưu/khôi phục: `node tests/planner-state.test.cjs`; kiểm thử tải lại bản build, hủy bản nháp và kết quả gợi ý hết hạn: `bun run test:build`.
 
 
 ### Sao lưu và khôi phục profile mô phỏng
