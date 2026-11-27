@@ -38,14 +38,23 @@ let productionHtml = html.replace(/<script src="([^"]+)"><\/script>/g, (tag, nam
 });
 await cp(new URL('dist/favicon.svg', root), new URL('dist/favicon.svg', output));
 const routes = [['/','index.html'], ['/index.html','index.html'], ['/sol-calculartor','index.html'], ['/sol-calculartor/','index.html']];
-const publicFiles = ['index.html'];
-for (const name of ['theme.js','app.js','style.css','favicon.svg']) {
+const extraPages = ['system-sizing.html','panel-dimensions.html'];
+const pageHtml = new Map(await Promise.all(extraPages.map(async name => [name, await readFile(new URL('dist/'+name, root),'utf8')])));
+const extraScripts = ['system-sizing.js','panel-geometry.js','info-page.js','i18n.js'];
+for (const name of extraScripts) await build({entrypoints:[new URL('dist/'+name,root).pathname],target:'browser',format:'iife',outdir:new URL('dist/',output).pathname,naming:name});
+for (const name of extraPages) {
+  const route='/'+name.replace('.html','');
+  routes.push([route,name],[route+'/',name]);
+}
+const publicFiles = ['index.html',...extraPages];
+for (const name of ['theme.js','app.js','style.css','favicon.svg',...extraScripts]) {
   const bytes = await readFile(new URL('dist/' + name, output));
   const hash = createHash('sha256').update(bytes).digest('hex').slice(0,12);
   const extension = name.slice(name.lastIndexOf('.'));
   const hashed = name.slice(0, -extension.length) + '.' + hash + extension;
   await rename(new URL('dist/' + name, output), new URL('dist/' + hashed, output));
   productionHtml = productionHtml.replaceAll(`"${name}"`, `"${hashed}"`);
+  for (const [page, content] of pageHtml) pageHtml.set(page,content.replaceAll(`"${name}"`, `"${hashed}"`));
   routes.push(['/' + hashed, hashed]);
   // Keep the stable alias for Docker health checks, without immutable caching.
   if (name === 'app.js') routes.push(['/app.js', hashed]);
@@ -54,6 +63,7 @@ for (const name of ['theme.js','app.js','style.css','favicon.svg']) {
 const browserAsset = publicFiles.find(name => name.startsWith('app.'));
 productionHtml = productionHtml.replace('</head>', `<link rel="preload" as="script" href="${browserAsset}"></head>`);
 await writeFile(new URL('dist/index.html', output), productionHtml);
+for (const [name, content] of pageHtml) await writeFile(new URL('dist/'+name,output),content);
 for (const name of publicFiles) {
   const bytes = await readFile(new URL('dist/' + name, output));
   await writeFile(new URL('dist/' + name + '.br', output), brotliCompressSync(bytes));

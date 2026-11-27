@@ -16,6 +16,12 @@ const visitors = createVisitorLogger({ redis, log: line => { const entry = JSON.
 const assets = new Map(process.env.SOL_BUILD_ASSETS ? JSON.parse(process.env.SOL_BUILD_ASSETS) : [
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
+  ['/system-sizing', 'system-sizing.html'],
+  ['/system-sizing/', 'system-sizing.html'],
+  ['/panel-dimensions', 'panel-dimensions.html'],
+  ['/panel-dimensions/', 'panel-dimensions.html'],
+  ['/info-page.js', 'info-page.js'],
+
   ['/sol-calculartor', 'index.html'],
   ['/sol-calculartor/', 'index.html'],
   ['/calculator-page.js', 'calculator-page.js'],
@@ -36,6 +42,7 @@ const assets = new Map(process.env.SOL_BUILD_ASSETS ? JSON.parse(process.env.SOL
   ['/solar.js', 'solar.js'],
   ['/app.js', 'app.js'],
   ['/energy.js', 'energy.js'],
+  ['/system-sizing.js', 'system-sizing.js'],
   ['/profile.js', 'profile.js'],
   ['/energy-ui.js', 'energy-ui.js'],
 ]);

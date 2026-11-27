@@ -22,3 +22,13 @@ const square=z=>[[2,2,z],[8,2,z],[8,8,z],[2,8,z]];
 const pixels=rasterize(10,10,[{p:square(1),color:'panel'},{p:square(2),color:'roof'}],p=>p,colorOf);
 assert.deepEqual([...pixels.slice((5*10+5)*4,(5*10+5)*4+4)],colors.roof);
 console.log('Depth rendering checks passed: 120 camera views, order independence and real occlusion.');
+// A retained workspace must clear both color and depth, and resize safely.
+const workspace={};
+const first=rasterize(10,10,[{p:square(2),color:'roof'}],p=>p,colorOf,workspace);
+const reused=rasterize(10,10,[{p:square(1),color:'panel'}],p=>p,colorOf,workspace);
+assert.equal(first,reused,'Same-size frames reuse the pixel buffer');
+assert.deepEqual(reused,rasterize(10,10,[{p:square(1),color:'panel'}],p=>p,colorOf));
+assert(rasterize(10,10,[],p=>p,colorOf,workspace).every(v=>v===0),'No stale pixels after clearing');
+const resized=rasterize(12,8,[{p:square(1),color:'panel'}],p=>p,colorOf,workspace);
+assert.notEqual(resized,first);
+assert.deepEqual(resized,rasterize(12,8,[{p:square(1),color:'panel'}],p=>p,colorOf));

@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+const {estimate}=require('../dist/system-sizing.js');
+const base={day:20,night:30,watts:600,yieldPerKwp:4};
+const r=estimate(base);
+assert.equal(r.panels,23);assert.equal(r.inverterKw,12);assert.equal(r.batteryKwh,36);
+assert(r.production>=20+30/.9);
+assert(r.batteryKwh*.9*.95>=30);
+assert((r.panels-1)*.6*4<r.requiredEnergy);
+assert.equal(estimate({...base,peak:16.2}).inverterKw,17);
+const day=estimate({...base,coverage:0});
+assert.equal(day.panels,9);assert.equal(day.batteryKwh,0);assert.equal(day.gridNight,30);
+assert.equal(estimate({...base,night:0}).batteryKwh,0);
+const half=estimate({...base,coverage:50});assert.equal(half.storedLoad,15);assert.equal(half.batteryKwh,18);
+assert(estimate({...base,yieldPerKwp:2}).panels>r.panels);
+for(const invalid of [{day:-1},{night:NaN},{yieldPerKwp:0},{watts:0},{coverage:101},{peak:-1},{day:0,night:0}])assert.throws(()=>estimate({...base,...invalid}));
+// UI events must update the recommendation and hide stale results on invalid input.
+const fs=require('node:fs'),vm=require('node:vm'),nodes=new Map();
+const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',hidden:false,textContent:'',valid:true,checkValidity(){return this.valid;},addEventListener(type,fn){this[type]=fn;}});return nodes.get(id);};
+for(const [key,value] of Object.entries({day:20,night:30,watts:600,yield:4,peak:'',coverage:100}))node('sizing-'+key).value=String(value);
+vm.runInNewContext(fs.readFileSync(require.resolve('../dist/system-sizing.js'),'utf8'),{document:{getElementById:node}});
+assert.match(node('sizing-pv').textContent,/23 tấm/);
+node('sizing-night').value='0';node('sizing-form').input();assert.equal(node('sizing-battery').textContent,'0 kWh');
+node('sizing-form').valid=false;node('sizing-form').input();assert.equal(node('sizing-result').hidden,true);
+console.log('System sizing passed: energy balance, rounding, peak load, no/partial storage, invalid inputs and live UI updates.');

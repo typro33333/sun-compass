@@ -135,9 +135,17 @@ function renderEnergyAnalysis(result, offset) {
   const series=key=>hours.map((h,i)=>`${x(i).toFixed(2)},${y(h[key]/h.durationHours).toFixed(2)}`).join(' ');
   const grid=Array.from({length:5},(_,i)=>{const value=top*i/4,py=y(value);return `<line x1="48" x2="592" y1="${py}" y2="${py}" class="chart-grid"/><text x="40" y="${py+4}" text-anchor="end">${value.toFixed(1)}</text>`;}).join('');
   const ticks=hours.map((h,i)=>i%Math.max(1,Math.ceil(hours.length/5))===0||i===hours.length-1?`<text x="${x(i)}" y="235" text-anchor="middle">${local(h.time)}</text>`:'').join('');
-  $('energy-chart').innerHTML=`<svg viewBox="0 0 640 250" role="img" aria-label="Công suất DC và AC trung bình trong từng khoảng giờ, chi tiết qua thanh chọn bên dưới"><g>${grid}${ticks}</g><polyline class="chart-dc" points="${series('dcKwh')}"/><polyline class="chart-ac" points="${series('kwh')}"/></svg>`;
+  $('energy-chart').innerHTML=`<svg viewBox="0 0 640 250" role="img" aria-label="Công suất DC và AC trung bình trong từng khoảng giờ, chi tiết qua thanh chọn bên dưới"><g>${grid}${ticks}</g><polyline class="chart-dc" points="${series('dcKwh')}"/><polyline class="chart-ac" points="${series('kwh')}"/><g aria-hidden="true"><line id="energy-chart-cursor" class="chart-cursor" y1="30" y2="210"/><circle id="energy-chart-dot-dc" class="chart-dot chart-dot-dc" r="8"/><circle id="energy-chart-dot-ac" class="chart-dot chart-dot-ac" r="5"/></g></svg>`;
   const slider=$('energy-chart-hour');slider.max=Math.max(0,hours.length-1);slider.value=String(Math.max(0,hours.findIndex(h=>h.kwh>0)));
-  const show=()=>{const h=hours[Number(slider.value)];if(!h)return;$('energy-chart-reading').textContent=`${local(h.time-h.durationHours*3600)}–${local(h.time)} · DC ${(h.dcKwh/h.durationHours).toFixed(2)} kW · AC ${(h.kwh/h.durationHours).toFixed(2)} kW`;};
+  const show=()=>{const h=hours[Number(slider.value)];if(!h)return;
+    const px=x(Number(slider.value));
+    $('energy-chart-cursor').setAttribute('x1',px);
+    $('energy-chart-cursor').setAttribute('x2',px);
+    for(const [id,key] of [['energy-chart-dot-dc','dcKwh'],['energy-chart-dot-ac','kwh']]) {
+      $(id).setAttribute('cx',px);
+      $(id).setAttribute('cy',y(h[key]/h.durationHours));
+    }
+    $('energy-chart-reading').textContent=`${local(h.time-h.durationHours*3600)}–${local(h.time)} · DC ${(h.dcKwh/h.durationHours).toFixed(2)} kW · AC ${(h.kwh/h.durationHours).toFixed(2)} kW`;};
   slider.oninput=show;show();
   const rows=[['DC trước tổn thất',result.rawDcKwh],['Bóng che',result.shadeLossKwh],['Nhiệt độ',result.lossKwh.temperature],['Dây dẫn DC',result.lossKwh.wiring],['Bụi bẩn',result.lossKwh.soiling],['Khác',result.lossKwh.other],['Giới hạn MPPT',result.mpptLossKwh],['Chuyển đổi inverter',result.inverterLossKwh],['Clipping AC',result.clippingKwh],['AC đầu ra',result.kwh]];
   $('energy-loss-table').innerHTML=rows.map(([label,value])=>`<tr><th scope="row">${label}</th><td>${value.toFixed(2)}</td><td>${(result.rawDcKwh?value/result.rawDcKwh*100:0).toFixed(1)}%</td></tr>`).join('');

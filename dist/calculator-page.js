@@ -12,7 +12,7 @@ globalThis.isSolarCalculator = /^\/sol-calculartor\/?$/.test(location.pathname |
   document.body.classList.add('calculator-page');
   document.querySelector('.weather-card').hidden = true;
   document.getElementById('date-controls').hidden = true;
-  document.title = 'Sol — Tính toán & bố trí pin mặt trời';
+  document.title = 'Hướng Nắng — Tính toán & bố trí pin mặt trời';
   document.querySelector('.intro h1').textContent = 'Đặt pin. Đón trọn nắng.';
   document.querySelector('.intro p').textContent = 'Bố trí trên mái, khám phá ánh sáng và dự đoán điện năng trong một không gian riêng.';
   const link = document.getElementById('energy-open');

@@ -1,16 +1,19 @@
 const $=id=>document.getElementById(id),R=Math.PI/180;
 let locationReady=false;
 let yearPlaying = null, yearAdvancing = false;
-let lat=10.8231,lon=106.6297,offset=7,minute=0,heading=0,playing=null,events;
+let lat=10.8231,lon=106.6297,offset=-new Date().getTimezoneOffset()/60,minute=0,heading=0,playing=null,events;
+let automaticTimezone = true;
 try {
+  automaticTimezone = localStorage.getItem('sol-timezone-mode') !== 'manual';
   const savedOffset = localStorage.getItem('sol-utc-offset');
-  if (savedOffset !== null && savedOffset.trim() !== '') {
+  if (!automaticTimezone && savedOffset !== null && savedOffset.trim() !== '') {
     const parsed = Number(savedOffset);
     if (Number.isFinite(parsed) && parsed >= -12 && parsed <= 14 && Number.isInteger(parsed * 4)) offset = parsed;
   }
 } catch {}
 const today=()=>new Date(Date.now()+offset*3600000).toISOString().slice(0,10);
 function setCurrentTime() {
+  if (automaticTimezone) offset = -new Date().getTimezoneOffset()/60;
   const now = new Date(Date.now() + offset * 3600000);
   $('date').value = now.toISOString().slice(0, 10);
   minute = now.getUTCHours() * 60 + now.getUTCMinutes();
@@ -57,9 +60,20 @@ $('timezone').addEventListener('change', () => {
     $('timezone').reportValidity();
     return;
   }
+  automaticTimezone = false;
   offset = Number($('timezone').value);
-  try { localStorage.setItem('sol-utc-offset', String(offset)); } catch {}
+  try { localStorage.setItem('sol-utc-offset', String(offset)); localStorage.setItem('sol-timezone-mode','manual'); } catch {}
   refresh();
+});
+$('timezone-auto').addEventListener('click', () => {
+  automaticTimezone = true;
+  try { localStorage.setItem('sol-timezone-mode','auto'); } catch {}
+  stop();setCurrentTime();refresh();
+});
+globalThis.addEventListener?.('focus', () => {
+  if (automaticTimezone && offset !== -new Date().getTimezoneOffset()/60) {
+    stop();setCurrentTime();refresh();
+  }
 });
 $('now').onclick=()=>{stop();setCurrentTime();refresh();};
 $('play').onclick=()=>{stopYear();if(playing){stop();return;}$('play').textContent='Tạm dừng';$('play').dataset.playing='true';playing=setInterval(()=>{minute=(minute+3)%1440;draw();},100);};

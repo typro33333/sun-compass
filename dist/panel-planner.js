@@ -3,9 +3,17 @@
   const canvas = $('panel-canvas'), ctx = canvas.getContext('2d'), G = PanelGeometry;
   let yaw = Math.PI-.6, pitch = .55, orbitKey = '', orbit = [], follow = false, previousHouse = 0, zoom = 1;
   const controls = { watts:$('energy-watts'), width:$('house-width'), length:$('house-length'), count:$('panel-count'), roof:$('roof-type'), bearing:$('panel-bearing'), tilt:$('panel-slope'), floors:$('panel-floors'), x:$('panel-x'), z:$('panel-z'), house:$('house-bearing'), left:$('neighbor-left'), right:$('neighbor-right'), leftRoof:$('neighbor-left-roof'), rightRoof:$('neighbor-right-roof') };
-  $('module-catalog-body').innerHTML=G.moduleCatalog.map(m=>`<tr><td>${m.min}–${m.max} W</td><td>${Math.round(m.length*1000)} × ${Math.round(m.width*1000)} mm</td><td><a href="${m.source}" target="_blank" rel="noreferrer">${m.model}</a></td></tr>`).join('');
   let lastEnergyScene='',capacityKey='',capacity=0;
   let placedPanels=null, initialized=false, lastSaved='', recommendationKey='';
+  let positionCacheKey='',positionCache=null,sceneCacheKey='',sceneCache=null,lightingCache=null,normalizationKey='';
+  const rasterWorkspace={};
+  let pendingFrame=false;
+  function scheduleRender() {
+    if(!globalThis.requestAnimationFrame){render();return;}
+    if(pendingFrame)return;
+    pendingFrame=true;
+    requestAnimationFrame(()=>{pendingFrame=false;render();});
+  }
   let savedState=null;
   try {savedState=PlannerState.load(localStorage);} catch {}
   function snapshot() {
@@ -31,13 +39,17 @@
   const colorCanvas=document.createElement('canvas');colorCanvas.width=colorCanvas.height=1;
   const colorContext=colorCanvas.getContext('2d'),colors=new Map();
   function colorOf(color) {
-    if(!colors.has(color)) {colorContext.clearRect(0,0,1,1);colorContext.fillStyle=color;colorContext.fillRect(0,0,1,1);colors.set(color,[...colorContext.getImageData(0,0,1,1).data]);}
+    if(!colors.has(color)) {if(colors.size>=128)colors.clear();colorContext.clearRect(0,0,1,1);colorContext.fillStyle=color;colorContext.fillRect(0,0,1,1);colors.set(color,[...colorContext.getImageData(0,0,1,1).data]);}
     return colors.get(color);
   }
   function getPositions(count,automatic=false) {
     const c=configuration();
-    if(!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,G.moduleFor(c.watts)))return placedPanels;
-    return G.packPanels(count,c.bearing-c.house,c.length,c.width,G.moduleFor(c.watts));
+    const key=JSON.stringify([count,automatic,c.bearing-c.house,c.length,c.width,c.watts,placedPanels]);
+    if(key===positionCacheKey)return positionCache;
+    const module=G.moduleFor(c.watts);
+    const positions=!automatic && placedPanels && placedPanels.length===count && G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,module)
+      ? placedPanels : G.packPanels(count,c.bearing-c.house,c.length,c.width,module);
+    positionCacheKey=key;positionCache=positions;return positions;
   }
   const openLayout=createPanelLayoutEditor({getConfiguration:configuration,getPositions,apply:positions=>{
     placedPanels=positions.map(p=>({...p}));controls.count.value=positions.length;
@@ -57,8 +69,15 @@
   function configuration() {
     return Object.fromEntries(Object.entries(controls).map(([k,node])=>[k,Number(node.value)]));
   }
-  globalThis.getEnergyScene=()=>G.scene(configuration(),getPositions(Number(controls.count.value)));
+  function sharedScene() {
+    const c=configuration(),positions=getPositions(c.count),key=JSON.stringify([c,positions]);
+    if(key!==sceneCacheKey){sceneCache=G.scene(c,positions);sceneCacheKey=key;}
+    return sceneCache;
+  }
+  globalThis.getEnergyScene=sharedScene;
   function normalizePanels() {
+    const key=JSON.stringify([configuration(),placedPanels,$('energy-count').value,$('energy-kwp').value]);
+    if(key===normalizationKey)return;
     const c=configuration(),module=G.moduleFor(c.watts);
     if(!module)return;
     if(!placedPanels || placedPanels.length!==c.count || !G.validPlacement(placedPanels,c.bearing-c.house,c.length,c.width,module)) {
@@ -79,6 +98,7 @@
       $('panel-advice').textContent=reason;
       if(initialized)globalThis.showSolarNotice?.(reason,true);
     }
+    normalizationKey=JSON.stringify([configuration(),placedPanels,$('energy-count').value,$('energy-kwp').value]);
   }
   $('energy-count').addEventListener('change',()=>{
     const n=Number($('energy-count').value);
@@ -320,20 +340,22 @@
       $('panel-explanation').hidden=true;
       $('panel-advice').textContent='Mô phỏng đã thay đổi. Bấm gợi ý để tính lại theo cấu hình mới.';
     }
-    if (!ctx) return;
+    if (!ctx || document.hidden) return;
     if(follow && globalThis.compassState?.ready) yaw=heading*R;
     $('panel-view-status').textContent=follow ? (globalThis.compassState?.ready ? '3D đang xoay theo la bàn thiết bị.' : 'Bấm Theo la bàn thiết bị để bật; xem trạng thái ở nhóm La bàn thiết bị.') : '3D đang xoay bằng tay. Hướng nhà không đổi khi xoay góc nhìn.';
     const c=configuration(), width=canvas.clientWidth, height=canvas.clientHeight;
     if (!width || !height) return;
     const dpr=Math.min(window.devicePixelRatio||1,globalThis.lowRenderQuality?1:2);
-    canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+    if(canvas.width!==Math.round(width*dpr))canvas.width=Math.round(width*dpr);
+    if(canvas.height!==Math.round(height*dpr))canvas.height=Math.round(height*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
     const dark=document.documentElement.dataset.theme==='dark';
     const sky=ctx.createLinearGradient(0,0,0,height);sky.addColorStop(0,dark?'#142c3e':'#e4eff2');sky.addColorStop(1,dark?'#253d38':'#f7f7ed');ctx.fillStyle=sky;ctx.fillRect(0,0,width,height);
+    const cosYaw=Math.cos(yaw),sinYaw=Math.sin(yaw),cosPitch=Math.cos(pitch),sinPitch=Math.sin(pitch);
     const scale=zoom*Math.min(width/86,height*.30/(34*Math.sin(pitch)+2),height*.55/32), buildingHeight=(c.floors+1)*3.2;
     function project([x,y,z]) {
-      const rx=x*Math.cos(yaw)+z*Math.sin(yaw), rz=-x*Math.sin(yaw)+z*Math.cos(yaw);
-      return [width/2+rx*scale,height*.65+(rz*Math.sin(pitch)-y*Math.cos(pitch))*scale,rz*Math.cos(pitch)+y*Math.sin(pitch)];
+      const rx=x*cosYaw+z*sinYaw, rz=-x*sinYaw+z*cosYaw;
+      return [width/2+rx*scale,height*.65+(rz*sinPitch-y*cosPitch)*scale,rz*cosPitch+y*sinPitch];
     }
     function polygon(points,fill,stroke='#879b96',lineWidth=1) {
       ctx.beginPath();points.forEach((p,i)=>{const [x,y]=project(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
@@ -344,9 +366,9 @@
     ctx.font='600 12px system-ui';ctx.textAlign='center';ctx.fillStyle=dark?'#ecdfb8':'#405c4e';
     polygon(Array.from({length:73},(_,i)=>G.vector(i*5,0).map(v=>v*32)),null,dark?'#9daea1':'#8c9f8c');
     for(let a=0;a<360;a+=10)polygon([G.vector(a,0).map(v=>v*31),G.vector(a,0).map(v=>v*32)],null,'#8c9f8c',a%30===0?2:1);
-    ['BẮC · 0°','ĐÔNG · 90°','NAM · 180°','TÂY · 270°'].forEach((text,i)=>{const p=G.vector(i*90,0).map(v=>v*34);const [x,y]=project(p);ctx.fillText(text,x,y);});
+    ['BẮC · 0°','ĐÔNG · 90°','NAM · 180°','TÂY · 270°'].forEach((text,i)=>{const p=G.vector(i*90,0).map(v=>v*34);const [x,y]=project(p);ctx.fillText(globalThis.solText?.(text)||text,x,y);});
     const rotate=p=>G.rotate(p,c.house);
-    const positions=getPositions(c.count),shared=G.scene(c,positions);
+    const shared=sharedScene();
     const {modules,neighbors,buildings,roofFaces}=shared,panel=modules[0];
     const buildingRoof=b=>shared.roofs[buildings.indexOf(b)];
     let sun=null;
@@ -396,14 +418,18 @@
     faces.forEach(face=>{face.stroke ||= '#879b96';});
     let shaded=0;
     const light=sun?G.incidence(sun,c.bearing,c.tilt):0;
-    const frame=G.renderCells(shared,sun||{azimuth:0,altitude:-90});
+    const lightSun=sun||{azimuth:0,altitude:-90};
+    if(lightingCache?.scene!==shared || lightingCache.azimuth!==lightSun.azimuth || lightingCache.altitude!==lightSun.altitude)
+      lightingCache={scene:shared,...lightSun,frame:G.renderCells(shared,lightSun)};
+    const frame=lightingCache.frame;
     for(const cell of frame.cells) {
       if(!cell.lit)shaded++;
       faces.push({p:cell.p,color:cell.lit?`hsl(204 43% ${24+light*24}%)`:'#142c3b',stroke:'#81b1c2'});
     }
     for(const module of modules)for(const post of G.supports(module,buildingHeight,c.roof,c.house,c.width))faces.push({p:post,stroke:'#738887'});
-    surface.width=Math.round(width*dpr);surface.height=Math.round(height*dpr);
-    const pixels=DepthRenderer.rasterize(surface.width,surface.height,faces,p=>{const v=project(p);return [v[0]*dpr,v[1]*dpr,v[2]];},colorOf);
+    if(surface.width!==canvas.width)surface.width=canvas.width;
+    if(surface.height!==canvas.height)surface.height=canvas.height;
+    const pixels=DepthRenderer.rasterize(surface.width,surface.height,faces,p=>{const v=project(p);return [v[0]*dpr,v[1]*dpr,v[2]];},colorOf,rasterWorkspace);
     surfaceContext.putImageData(new ImageData(pixels,surface.width,surface.height),0,0);
     ctx.drawImage(surface,0,0,width,height);
     $('panel-shade').textContent=sun && sun.altitude>0 && light<=1e-12 ? 'Quay khỏi nắng' : sun && sun.altitude>0 ? `≈ ${Math.round(shaded/(36*c.count)*100)}%` : '—';
@@ -435,7 +461,7 @@
     $('panel-zoom-label').textContent=`${Math.round(zoom*100)}%`;
     $('panel-zoom-out').disabled=zoom<=.5;
     $('panel-zoom-in').disabled=zoom>=4;
-    render();
+    scheduleRender();
   }
   const distance=()=>{const [a,b]=[...pointers.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
@@ -448,7 +474,7 @@
     const before=pointers.size===2?distance():0;
     pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(pointers.size===2){if(before>0)setZoom(zoom*distance()/before);return;}
-    yaw+=(e.clientX-old.x)*.008;pitch=Math.max(.05,Math.min(Math.PI/2,pitch+(e.clientY-old.y)*.006));render();
+    yaw+=(e.clientX-old.x)*.008;pitch=Math.max(.05,Math.min(Math.PI/2,pitch+(e.clientY-old.y)*.006));scheduleRender();
   });
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>pointers.delete(e.pointerId));
   canvas.addEventListener('wheel',e=>{e.preventDefault();setZoom(zoom*Math.exp(-Math.max(-100,Math.min(100,e.deltaY))*.003));},{passive:false});
@@ -460,10 +486,10 @@
   $('panel-zoom-out').onclick=()=>setZoom(zoom/1.2);
   $('panel-view-front').onclick=()=>{manual();yaw=Math.PI+Number(controls.house.value)*R;pitch=.15;render();};
   manual();
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
-  new ResizeObserver(render).observe(canvas);
-  new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-  globalThis.renderPanelPlanner=render;
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else scheduleRender();});
+  new ResizeObserver(scheduleRender).observe(canvas);
+  new MutationObserver(scheduleRender).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  globalThis.renderPanelPlanner=scheduleRender;
   function applyProfile(state) {
     controls.watts.value=state.config.watts || 600;
     for(const [name,value] of Object.entries(state.config))controls[name].value=value;
@@ -480,7 +506,8 @@
   if(savedState)applyProfile(savedState);
   globalThis.restorePlannerLocation=()=>{
     if(!savedState?.location)return false;
-    ({lat,lon,offset}=savedState.location);
+    ({lat,lon}=savedState.location);
+    if (!automaticTimezone) offset=savedState.location.offset;
     $('lat').value=lat;$('lon').value=lon;
     setCurrentTime();locationReady=true;
     $('location-name').textContent='Vị trí mô phỏng đã lưu';

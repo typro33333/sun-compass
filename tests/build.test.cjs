@@ -6,7 +6,15 @@ const root = path.resolve(__dirname, '../build');
 const html = fs.readFileSync(path.join(root, 'dist/index.html'), 'utf8');
 const files = fs.readdirSync(path.join(root, 'dist')).filter(name=>!/\.(br|gz)$/.test(name)).sort();
 const find = base => files.find(name => new RegExp('^' + base + '\\.[a-f0-9]{12}\\.').test(name));
-assert.equal(files.length,5);
+assert.equal(files.length,11);
+for(const name of ['system-sizing.html','panel-dimensions.html']) {
+  const page=fs.readFileSync(path.join(root,'dist',name),'utf8');
+  for(const [,asset] of page.matchAll(/(?:src|href)="([^"/]+\.(?:js|css|svg))"/g)) {
+    assert(files.includes(asset),`Missing standalone page asset ${asset}`);
+    assert(/\.[a-f0-9]{12}\./.test(asset),`Unhashed standalone asset ${asset}`);
+  }
+}
+
 for (const base of ['app','theme','style','favicon']) assert(find(base));
 assert.deepEqual([...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]), [find('theme'), find('app')]);
 const bundle = fs.readFileSync(path.join(root, 'dist', find('app')), 'utf8');
@@ -73,6 +81,22 @@ node('time').input({target:{value:'600'}});
 assert.equal(node('selected-time').textContent,'10:00');
 if (pathname === '/sol-calculartor') {
   assert.equal(node('panel-planner').hidden,false);
+  const initialScene=context.getEnergyScene();
+  assert.equal(context.getEnergyScene(),initialScene,'Unchanged geometry reuses the scene');
+  const originalRasterize=context.DepthRenderer.rasterize;
+  let renders=0;const frames=[];
+  context.DepthRenderer.rasterize=(...args)=>{renders++;return originalRasterize(...args);};
+  context.requestAnimationFrame=fn=>frames.push(fn);
+  for(let i=0;i<12;i++)context.renderPanelPlanner();
+  assert.equal(frames.length,1,'Sensor/render bursts schedule one animation frame');
+  assert.equal(renders,0,'No rasterization before the animation frame');
+  frames.shift()();assert.equal(renders,1);
+  assert.equal(context.getEnergyScene(),initialScene,'Camera rendering retains geometry');
+  delete context.requestAnimationFrame;context.DepthRenderer.rasterize=originalRasterize;
+  const oldTilt=node('panel-slope').value;
+  node('panel-slope').value=Number(oldTilt)+1;node('panel-slope').input();
+  assert.notEqual(context.getEnergyScene(),initialScene,'Geometry changes invalidate scene cache');
+  node('panel-slope').value=oldTilt;node('panel-slope').input();
   assert.equal(node('.compass-card').hidden,true);
   assert.equal(node('energy-open').href,'/');
   for(let i=0;i<5;i++)node('floor-add').onclick();

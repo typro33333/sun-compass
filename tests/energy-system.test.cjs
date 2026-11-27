@@ -34,6 +34,34 @@ test('partial shade affects direct only, preserves diffuse, is per panel/hour',(
  assert(shaded.kwh<diffuse.kwh && shaded.shadeLossKwh>0);
  assert(shaded.hours[0].panels[0].dcKwh>shaded.hours[0].panels[1].dcKwh);
 });
+test('0%, 50%, 100% geometric shade produces exact direct and mixed-light power',()=>{
+ // Sun is normal to the panel: incidence = 1. Moving toward the east
+ // neighbor puts respectively zero, three, or six sample columns in shadow.
+ for(const [x,lit] of [[-3,1],[3,.5],[5,0]]) {
+  const scene=G.scene({...config,count:1,right:2,rightRoof:1},[{x,z:0}]);
+  const o={...system,scene,sunAt:()=>({azimuth:90,altitude:30})};
+  for(const [dni,expectedKwh] of [[1000,.6*lit],[800,.12+.48*lit],[0,.6]]) {
+   const samples=[];
+   const r=E.estimateSystem(data(1000,dni),start,start+3600,{...o,onSample:s=>samples.push(s)});
+   near(r.hours[0].panels[0].litFraction,lit);
+   near(r.dcKwh,expectedKwh);near(r.kwh,expectedKwh);
+   near(r.shadeLossKwh,.6-expectedKwh);
+   near(r.hours[0].panels[0].shadeLossKwh,r.shadeLossKwh);
+   assert.equal(samples.length,4);
+   samples.forEach(s=>{near(s.dcKw[0],expectedKwh);near(s.acKw,expectedKwh);});
+  }
+ }
+});
+test('moving shadow is integrated per quarter hour, including a partial interval',()=>{
+ const scene=G.scene({...config,count:1,right:2,rightRoof:1},[{x:3,z:0}]);
+ const o={...system,scene,sunAt:t=>({azimuth:90,altitude:t<start+1800?30:80})};
+ // First half-hour: 50% lit at incidence 1. Second: fully lit.
+ const r=E.estimateSystem(data(1000,800),start,start+3600,o);
+ near(r.kwh,.36*.5+.6*.5);near(r.shadeLossKwh,.24*.5);
+ near(r.hours[0].panels[0].litFraction,.75);
+ const partial=E.estimateSystem(data(1000,800),start+900,start+3600,o);
+ near(partial.kwh,.36*.25+.6*.5);near(partial.shadeLossKwh,.24*.25);
+});
 test('loss categories applied once, inverter once, energy budget reconciles',()=>{
  const sys=structuredClone(system);sys.losses={temperature:10,wiring:2,soiling:3,other:1};sys.inverter.efficiency=95;
  const r=E.estimateSystem(data(),start,start+3600,options(config,sys));

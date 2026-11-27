@@ -1,8 +1,12 @@
 // Orthographic software depth buffer: every visible pixel belongs to the nearest
 // surface, independent of face size, winding, camera angle or insertion order.
 (function(root) {
-  function rasterize(width, height, faces, project, colorOf) {
-    const pixels=new Uint8ClampedArray(width*height*4), depth=new Float32Array(width*height).fill(-Infinity);
+  function rasterize(width, height, faces, project, colorOf, workspace) {
+    const size=width*height;
+    const pixels=workspace?.pixels?.length===size*4?workspace.pixels:new Uint8ClampedArray(size*4);
+    const depth=workspace?.depth?.length===size?workspace.depth:new Float32Array(size);
+    pixels.fill(0);depth.fill(-Infinity);
+    if(workspace){workspace.pixels=pixels;workspace.depth=depth;}
     function pixel(x,y,z,color,bias=0) {
       if(x<0 || y<0 || x>=width || y>=height)return;
       const index=y*width+x;

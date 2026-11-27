@@ -70,5 +70,17 @@ test('independent ray-triangle oracle matches rendered roof/wall occlusion',()=>
   }
  }
 });
+test('cached samples match fresh scenes across sun, grid and geometry changes',()=>{
+ for(const house of [0,32,122])for(const roof of [0,1]) {
+  const config={...c,house,bearing:house+90,roof},scene=G.scene(config,positions);
+  for(const grid of [6,3,10,6])for(const altitude of [-10,5,25,60]) {
+   const sun={azimuth:house+90,altitude};
+   const cached=G.exposure(scene,sun,grid);
+   assert.deepEqual(cached,G.exposure(G.scene(config,positions),sun,grid));
+   cached.panels[0].cells.fill(false);
+   assert.deepEqual(G.exposure(scene,sun,grid),G.exposure(G.scene(config,positions),sun,grid),'Mutating an output cannot poison the sample cache');
+  }
+ }
+});
 console.log(JSON.stringify({checks,failures,maxShadeDifferencePercentagePoints:maxDifference*100}));
 if(failures)process.exitCode=1;

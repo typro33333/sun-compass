@@ -445,3 +445,50 @@ header #header-gps[hidden]{display:none}
 #panel-suggestion-dialog{width:min(500px,calc(100vw - 32px));padding:24px;border:1px solid #82958b66;border-radius:18px;background:#fff;color:#253e35}#panel-suggestion-dialog::backdrop{background:#0008}#panel-suggestion-dialog h2{font-size:21px;margin:0 0 18px}#panel-suggestion-dialog>button{display:block;width:100%;text-align:left;white-space:normal;margin-top:12px;padding:14px;border:1px solid #82958b66;border-radius:12px}#panel-suggestion-dialog button span{display:block;font-size:12px;line-height:1.6;margin-top:6px;font-weight:400}#panel-suggestion-dialog button strong{font-size:14px}#panel-suggestion-status:empty{display:none}[data-theme=dark] #panel-suggestion-dialog{background:#19282e;color:#e3ece8}
 .inverter-help,.inverter-advanced p{font-size:12px;line-height:1.7}.inverter-advanced{margin-top:20px;border-top:1px solid #91a49955;padding-top:16px}.inverter-advanced>summary{cursor:pointer;font-weight:600;font-size:14px;padding:4px 0}.inverter-advanced>summary span{display:block;font-weight:400;font-size:11px;opacity:.75;margin:6px 0 0 16px}.inverter-advanced h4{font-size:13px;margin:22px 0 0}.inverter-advanced .energy-fields{margin-top:12px}
 #placement-preview{width:min(760px,calc(100vw - 32px));max-height:90vh;overflow:auto;padding:24px;border:1px solid #82958b66;border-radius:18px;background:#fff;color:#253e35}#placement-preview::backdrop{background:#0008}.placement-comparison{display:grid;grid-template-columns:1fr 1fr;gap:16px}.placement-comparison[hidden]{display:none}.placement-comparison svg{width:100%;max-height:260px}.placement-comparison h3{font-size:14px}#placement-preview-status,.annual-scenario p{font-size:12px;line-height:1.7}.annual-scenario{margin-top:20px;border-top:1px solid #82958b55;padding-top:12px}.annual-scenario label{display:block;font-size:12px;margin:12px 0}.annual-scenario input{display:block;width:100%;margin-top:6px}[data-theme=dark] #placement-preview{background:#19282e;color:#e3ece8}
+
+/* Keep solar times with preferences, including on narrow screens. */
+header .header-actions #energy-open{width:100%;margin:0;min-height:44px;padding:10px;font-size:14px;white-space:normal;justify-content:flex-start;text-align:left}
+.planner-settings .planner-profile-actions{display:flex;gap:8px;padding:12px 0;border-bottom:1px solid #91a49944;margin-bottom:12px}
+.planner-settings .planner-profile-actions .planner-icon-button{width:auto;flex:1;gap:8px;padding:8px;font-size:12px}
+.chart-cursor{stroke:currentColor;stroke-width:1;stroke-dasharray:5 4;opacity:.6;vector-effect:non-scaling-stroke}
+.chart-dot{stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke}
+.chart-dot-dc{fill:#3981db}.chart-dot-ac{fill:#38985a}
+[data-theme=dark] .chart-dot{stroke:#19282e}
+[data-theme=dark] .chart-dot-dc{fill:#79b2ff}
+[data-theme=dark] .chart-dot-ac{fill:#83d89b}
+@media(max-width:650px){
+ header{display:flex;flex-wrap:nowrap;gap:8px;padding:10px}
+ header .brand{flex-shrink:0;font-size:24px;gap:4px}
+ header .brand-logo{width:28px;height:28px}
+ header .header-tools{display:flex;width:auto;margin-left:auto;gap:8px;flex-wrap:nowrap}
+ header .header-sun-times{gap:8px;margin:0;min-height:36px}
+ header .header-sun-time{gap:3px}
+ header .header-sun-time svg{width:18px;height:18px}
+ header .header-sun-time strong{font-size:12px}
+ header .header-preferences{margin:0}
+ header #header-menu-toggle{font-size:11px;padding:8px 6px}
+}
+@media(max-width:360px){header .header-sun-time svg{width:15px;height:15px}header .header-tools{gap:5px}header .header-sun-times{gap:5px}header .brand{font-size:21px}}
+
+header #header-menu-toggle{width:44px;height:44px;min-height:44px;padding:10px;flex-shrink:0}
+#header-menu-toggle svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.sizing-card{margin:24px 0;padding:20px;border:1px solid #91a49966;border-radius:14px;background:#f3f6ee}
+.sizing-card h3{margin:0;font-size:20px}.sizing-card p{font-size:13px;line-height:1.65}.sizing-card summary{cursor:pointer;font-size:14px}.sizing-card form>button{margin-top:16px}.sizing-card .energy-fields label{font-size:14px}.sizing-card a{color:inherit;text-decoration:underline}
+.sizing-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}.sizing-metrics div{display:flex;flex-direction:column;gap:8px}.sizing-metrics span{font-size:12px}.sizing-metrics strong{font-size:21px;line-height:1.4}
+[data-theme=dark] .sizing-card{background:#20363b;border-color:#455b61}
+@media(max-width:600px){.sizing-card{padding:16px}.sizing-metrics{grid-template-columns:1fr}.sizing-metrics div{padding:10px 0;border-bottom:1px solid #91a49944}.sizing-card .energy-fields{grid-template-columns:1fr}}
+
+.header-actions>a.nav-link{display:block;padding:12px;border-radius:8px;font-size:14px;color:inherit;text-decoration:none;line-height:1.5}
+.header-actions>a.nav-link:hover,.header-actions>a[aria-current=page]{background:#91a49922}
+.info-page main{max-width:960px}.page-breadcrumb{margin-bottom:24px}.page-breadcrumb a,.calculator-page-links a{color:inherit;font-size:14px}
+.info-page h1{font-size:clamp(26px,5vw,36px);margin-bottom:24px}
+.info-page .sizing-card h3{display:none}
+.info-page .module-catalog{padding:20px;overflow-x:auto;border:1px solid #91a49966;border-radius:14px;background:#fff}
+.info-page .module-catalog h2{font-size:20px}.info-page .module-catalog p{font-size:14px;line-height:1.7}
+.info-page .module-catalog table{width:100%;min-width:440px}.info-page .module-catalog th,.info-page .module-catalog td{padding:14px 10px;font-size:14px;text-align:left;border-bottom:1px solid #91a49944}
+[data-theme=dark] .info-page .module-catalog{background:#20363b}
+
+header .brand{white-space:nowrap;font-size:28px}
+.brand-name{font-weight:600;letter-spacing:-.7px}
+@media(max-width:650px){header .brand{font-size:20px;gap:5px}.brand-name{letter-spacing:-.5px}}
+@media(max-width:360px){header .brand{font-size:17px;gap:3px}header .brand-logo{width:24px;height:24px}}

@@ -77,7 +77,7 @@
       setGPSStatus('success','Đã lấy GPS hiện tại. Bấm để cập nhật vị trí.');
       $('location-name').textContent = 'Vị trí hiện tại';
       $('location-status').textContent = 'Đã lấy vị trí hiện tại';
-      $('feedback').textContent = 'Mặc định UTC+7. Có thể chỉnh múi giờ trong menu.';
+      $('feedback').textContent = 'Múi giờ mặc định theo thiết bị. Có thể chỉnh thủ công trong menu.';
       $('location-retry').hidden = true;
       refresh();
     }, error => {

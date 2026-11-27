@@ -121,18 +121,25 @@
       return [box,[[0,-1,0,-height],[0,0,1,z+end],[0,0,-1,-z+end],[3/half,1,0,height+3+3*x/half],[-3/half,1,0,height+3-3*x/half]]];
     });
   }
-  function rayBlocked(origin,ray,volumes) {
-    return volumes.some(planes=>{
-      let near=.0001, far=Infinity;
-      for(const [a,b,c,d] of planes) {
-        const distance=d-a*origin[0]-b*origin[1]-c*origin[2], slope=a*ray[0]+b*ray[1]+c*ray[2];
-        if(Math.abs(slope)<1e-10) { if(distance<0)return false; }
+  function prepareRay(ray,volumes) {
+    return volumes.map(planes=>planes.map(([a,b,c,d])=>[a,b,c,d,a*ray[0]+b*ray[1]+c*ray[2]]));
+  }
+  function preparedRayBlocked(origin,volumes) {
+    for(const planes of volumes) {
+      let near=.0001, far=Infinity,miss=false;
+      for(const [a,b,c,d,slope] of planes) {
+        const distance=d-a*origin[0]-b*origin[1]-c*origin[2];
+        if(Math.abs(slope)<1e-10) { if(distance<0){miss=true;break;} }
         else if(slope>0) far=Math.min(far,distance/slope);
         else near=Math.max(near,distance/slope);
-        if(far<near)return false;
+        if(far<near){miss=true;break;}
       }
-      return far>=near;
-    });
+      if(!miss && far>=near)return true;
+    }
+    return false;
+  }
+  function rayBlocked(origin,ray,volumes) {
+    return preparedRayBlocked(origin,prepareRay(ray,volumes));
   }
   function blocked(point, sun, buildings, bearing) {
     return sun.altitude>0 && rayBlocked(rotate(point,-bearing),rotate(vector(sun.azimuth,sun.altitude),-bearing),occluders(buildings));
@@ -174,20 +181,28 @@
     const panels=surfaces.map((vertices,i)=>({id:i+1,position:vertices[0].map((v,k)=>(v+vertices[2][k])/2),dimensions:{width:module.width,length:module.length},azimuth:c.bearing,tilt:c.tilt,rotation:positions[i].rotation||0,normal:vector(c.bearing,90-c.tilt),vertices}));
     return {config:{...c},positions:positions.map(p=>({...p})),module,panels,modules:surfaces,neighbors:adjacent,buildings,roofs,roofFaces,volumes:occluders(buildings)};
   }
+  // Scenes are geometry snapshots. Keep only the latest sampling grid per scene;
+  // WeakMap entries disappear when a scene is replaced by new geometry.
+  const sampleCache=new WeakMap();
+  function sampledGeometry(scene,grid) {
+    let cached=sampleCache.get(scene);
+    if(cached?.grid===grid)return cached;
+    const points=scene.panels.map(({vertices:face})=>Array.from({length:grid*grid},(_,i)=>{
+      const u=(i%grid+.5)/grid,v=(Math.floor(i/grid)+.5)/grid;
+      return rotate(face[0].map((n,k)=>n+(face[1][k]-n)*u+(face[3][k]-n)*v),-scene.config.house);
+    }));
+    cached={grid,points};sampleCache.set(scene,cached);return cached;
+  }
   function exposure(scene,sun,grid=6) {
     if(!Number.isFinite(sun?.azimuth)||!Number.isFinite(sun?.altitude))throw Error('Góc mặt trời không hợp lệ.');
     if(!Number.isInteger(grid)||grid<1||grid>30)throw Error('Lưới bóng che không hợp lệ.');
     const c=scene.config,ray=rotate(vector(sun.azimuth,sun.altitude),-c.house);
-    const facing=incidence(sun,c.bearing,c.tilt);
-    const panels=scene.panels.map(({id,vertices:face})=>{
-      const cells=Array.from({length:grid*grid},(_,i)=>{
-        if(sun.altitude<=0 || facing<=1e-12)return false;
-        const u=(i%grid+.5)/grid,v=(Math.floor(i/grid)+.5)/grid;
-        const p=face[0].map((n,k)=>n+(face[1][k]-n)*u+(face[3][k]-n)*v);
-        return !rayBlocked(rotate(p,-c.house),ray,scene.volumes);
-      });
+    const facing=incidence(sun,c.bearing,c.tilt),direct=sun.altitude>0 && facing>1e-12;
+    const sampled=direct?sampledGeometry(scene,grid):null,volumes=direct?prepareRay(ray,scene.volumes):null;
+    const panels=scene.panels.map(({id},index)=>{
+      const cells=direct?sampled.points[index].map(p=>!preparedRayBlocked(p,volumes)):Array(grid*grid).fill(false);
       const litFraction=cells.filter(Boolean).length/cells.length,area=scene.module.width*scene.module.length;
-      return {id,cells,litFraction,shadeFraction:sun.altitude>0 && facing>1e-12 ? 1-litFraction : null,area,litArea:area*litFraction};
+      return {id,cells,litFraction,shadeFraction:direct ? 1-litFraction : null,area,litArea:area*litFraction};
     });
     return {incidence:facing,panels};
   }
@@ -227,7 +242,7 @@
   function* recommendScene(samples,config,positions,layout = false) {
     const c={width:8,...config}, module=moduleFor(config.watts) || legacyModule, height=(c.floors+1)*3.2+(c.roof?3:0);
     const volumes=occluders(neighbors(c.left,c.right,c.length,c.leftRoof,c.rightRoof,c.width));
-    const rays=samples.filter(s=>s.altitude>0).map(s=>({world:vector(s.azimuth,s.altitude),local:rotate(vector(s.azimuth,s.altitude),-c.house),weight:s.weight??1}));
+    const rays=samples.filter(s=>s.altitude>0).map(s=>({world:vector(s.azimuth,s.altitude),local:prepareRay(rotate(vector(s.azimuth,s.altitude),-c.house),volumes),weight:s.weight??1}));
     function score(bearing,tilt,grid,placement = positions,ignoreShade = false) {
       const normal=vector(bearing,90-tilt);
       const panels=individualPanels(placement,bearing-c.house,tilt,height,module);
@@ -240,7 +255,7 @@
         const incidence=Math.max(0,normal.reduce((sum,n,i)=>sum+n*ray.world[i],0));
         if(!incidence)continue;
         let visible=points.length;
-        if(!ignoreShade && volumes.length)for(const point of points)if(rayBlocked(point,ray.local,volumes))visible--;
+        if(!ignoreShade && volumes.length)for(const point of points)if(preparedRayBlocked(point,ray.local))visible--;
         total+=incidence*ray.world[1]*ray.weight*visible/points.length;
       }
       return total;
