@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"golang.org/x/sync/errgroup"
 	"math"
 	"net/http"
+	"runtime"
 )
 
 // Panel vertices use world coordinates. Convex occluder planes use house-local
@@ -109,6 +112,10 @@ func mayShade(origin, u, v [3]float64, volume []rayPlane) bool {
 	return true
 }
 func (s ExposureScene) Exposure(sun SunPosition, grid int) ExposureResult {
+	out, _ := s.expose(context.Background(), sun, grid, false)
+	return out
+}
+func (s ExposureScene) expose(ctx context.Context, sun SunPosition, grid int, parallel bool) (ExposureResult, error) {
 	ray, normal := sunVector(sun.Azimuth, sun.Altitude), sunVector(s.Bearing, 90-s.Tilt)
 	out := ExposureResult{Panels: make([]PanelExposure, len(s.Panels))}
 	if sun.Altitude > 0 {
@@ -126,7 +133,8 @@ func (s ExposureScene) Exposure(sun SunPosition, grid int) ExposureResult {
 			shadow = append(shadow, planes)
 		}
 	}
-	for i, face := range s.Panels {
+	panel := func(i int) {
+		face := s.Panels[i]
 		cells := make([]bool, grid*grid)
 		count := 0
 		if out.Incidence > 1e-12 {
@@ -157,7 +165,29 @@ func (s ExposureScene) Exposure(sun SunPosition, grid int) ExposureResult {
 		}
 		out.Panels[i] = PanelExposure{cells, float64(count) / float64(len(cells))}
 	}
-	return out
+	if parallel && out.Incidence > 1e-12 && len(shadow) > 0 && len(s.Panels) >= 8 {
+		group, ctx := errgroup.WithContext(ctx)
+		n := min(4, runtime.GOMAXPROCS(0), len(s.Panels))
+		for worker := 0; worker < n; worker++ {
+			group.Go(func() error {
+				for i := worker; i < len(s.Panels); i += n {
+					if err := ctx.Err(); err != nil {
+						return err
+					}
+					panel(i)
+				}
+				return nil
+			})
+		}
+		return out, group.Wait()
+	}
+	for i := range s.Panels {
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
+		panel(i)
+	}
+	return out, nil
 }
 func shade(w http.ResponseWriter, r *http.Request) {
 	var q struct {
@@ -169,5 +199,9 @@ func shade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(q.Scene.Exposure(*q.Sun, 6))
+	out, err := q.Scene.expose(r.Context(), *q.Sun, 6, true)
+	if err != nil {
+		return
+	}
+	json.NewEncoder(w).Encode(out)
 }

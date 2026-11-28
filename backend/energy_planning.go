@@ -11,12 +11,10 @@ type planningScenario struct {
 	DayKwh, NightKwh, Capacity, Power, Price, Capital, AnnualCost, Years float64
 }
 type planningResult struct {
-	Charged       float64 `json:"charged"`
-	Discharged    float64 `json:"discharged"`
-	Grid          float64 `json:"grid"`
-	Exported      float64 `json:"exported"`
-	AnnualSavings float64 `json:"annualSavings"`
-	ROI           float64 `json:"roi"`
+	Charged    float64 `json:"charged"`
+	Discharged float64 `json:"discharged"`
+	Grid       float64 `json:"grid"`
+	Exported   float64 `json:"exported"`
 }
 
 func simulatePlanning(hours []energyHour, start int64, s planningScenario) (planningResult, error) {
@@ -56,7 +54,5 @@ func simulatePlanning(hours []energyHour, start int64, s planningScenario) (plan
 		initial = fromFull
 	}
 	daily, _ = run(initial)
-	daily.AnnualSavings = (s.DayKwh+s.NightKwh-daily.Grid)*s.Price*365 - s.AnnualCost
-	daily.ROI = (daily.AnnualSavings*s.Years - s.Capital) / s.Capital * 100
 	return daily, nil
 }

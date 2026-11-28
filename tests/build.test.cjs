@@ -50,6 +50,9 @@ const context = { document:{ body:node('body'),documentElement:node('html'),cook
   Blob,URL:{createObjectURL(blob){exportedBlob=blob;return 'blob:test-profile';},revokeObjectURL(){}},
   ImageData:class{constructor(data,width,height){Object.assign(this,{data,width,height});}},
   fetch:async(url,init)=>{
+    if(String(url).startsWith('/api/forecast?') && new URLSearchParams(String(url).split('?')[1]).has('current')){
+      return Response.json({current:{time:Date.now()/1000,interval:900,cloud_cover:45,rain:0,showers:0,weather_code:2}});
+    }
     if(url==='/api/calc/recommend'){
       const {config,positions}=JSON.parse(init.body);
       return Response.json({bearing:config.bearing,tilt:config.tilt,baseline:1,score:1,positions,explanation:{beforeShade:0,afterShade:0,moved:0,neighbors:false}});
@@ -110,6 +113,11 @@ if (pathname === '/sol-calculator') {
   node('time').input({target:{value:(localMinutes('rise-time')+localMinutes('set-time'))/2}});
   await new Promise(resolve=>setTimeout(resolve,90));
   assert.equal(node('shade-retry').hidden,false,'Failed mask exposes a retry action');
+  assert.equal(node('panel-shade').textContent,'Không lấy được bóng che');
+  node('time').input({target:{value:0}});
+  assert.equal(node('panel-shade').textContent,'Ban đêm');
+  assert.equal(node('shade-retry').hidden,true,'Night clears the failed daytime mask');
+  node('time').input({target:{value:(localMinutes('rise-time')+localMinutes('set-time'))/2}});
   shadeAvailable=true;
   node('shade-retry').onclick();
   await new Promise(resolve=>setTimeout(resolve,90));
@@ -202,7 +210,8 @@ if (pathname === '/sol-calculator') {
   assert.equal(node('house-length-label').textContent,'30 m');
   assert.equal(node('date-controls').hidden,true);
   assert.equal(node('.sun-times').hidden,true);
-  assert.equal(node('.weather-card').hidden,true);
+  assert.equal(node('.weather-card').hidden,false);
+  assert.match(node('weather-time').textContent,/10.8231,106.6297/);
   node('energy-watts').value='700';node('energy-watts').input();
   assert.equal(Number(node('energy-kwp').value),Number(node('panel-count').value)*700/1000);
   assert.match(node('module-description').textContent,/2384 × rộng 1303/);

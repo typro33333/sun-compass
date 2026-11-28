@@ -27,6 +27,7 @@ const wait=()=>new Promise(r=>setTimeout(r,5));
  assert.equal(calls,1);assert(lastQuery.get('hourly').includes('direct_normal_irradiance'));
  assert.equal($('energy-result').hidden,false);assert.match($('energy-kwh').textContent,/2[,.]9/);
  assert.match($('energy-hourly').innerHTML,/MPPT/);assert.match($('energy-formula').textContent,/clipping AC/);
+ assert.equal(($('energy-hourly').innerHTML.match(/<tbody>/g)||[]).length,1);
  assert.match($('energy-chart').innerHTML,/<svg/);
  assert.match($('energy-loss-table').innerHTML,/Bóng che/);
  assert.equal($('energy-dc-total').textContent,'2.88');

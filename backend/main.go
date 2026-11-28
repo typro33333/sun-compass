@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"syscall"
 	"time"
@@ -54,12 +55,18 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
-	mux.HandleFunc("POST /solar", solar)
-	mux.HandleFunc("POST /shade", shade)
-	mux.HandleFunc("POST /energy", energy)
-	mux.HandleFunc("POST /annual", annualEnergy)
-	mux.HandleFunc("POST /recommend", recommend)
-	mux.HandleFunc("POST /sizing", sizing)
+	mux.HandleFunc("POST /solar", shareCalculation(solar))
+	mux.HandleFunc("POST /shade", shareCalculation(shade))
+	mux.HandleFunc("POST /seasonal", shareCalculation(seasonal))
+	mux.HandleFunc("POST /energy", shareCalculation(energy))
+	mux.HandleFunc("POST /annual", shareCalculation(annualEnergy))
+	mux.HandleFunc("POST /recommend", shareCalculation(recommend))
+	mux.HandleFunc("POST /sizing", shareCalculation(sizing))
+	if os.Getenv("SOL_PPROF") == "1" {
+		mux.HandleFunc("GET /debug/pprof/", pprof.Index)
+		mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
+	}
 	server := http.Server{Handler: mux, ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second}
 	log.Fatal(server.Serve(listener))
 }

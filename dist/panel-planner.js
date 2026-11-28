@@ -339,6 +339,7 @@
     $('panel-advice').textContent='Gợi ý áp dụng cho ngày và vị trí đang chọn. Bấm gợi ý để tính lại.';
   };
   function retryShade(){
+    if(lightingCache){clearTimeout(lightingCache.timer);lightingCache.controller.abort();}
     lightingCache=null;
     $('shade-retry').hidden=true;
     scheduleRender();
@@ -364,6 +365,7 @@
       }catch(error){
         if(entry===lightingCache && !entry.controller.signal.aborted){
           entry.failed=true;
+          scheduleRender();
           $('shade-retry').hidden=false;
         }
       }
@@ -372,7 +374,8 @@
   }
   function render() {
     normalizePanels();
-    const sceneKey=JSON.stringify([configuration(),getPositions(Number(controls.count.value)),lat,lon,offset]);
+    // A location change already starts a forecast. Only geometry edits invalidate it here.
+    const sceneKey=JSON.stringify([configuration(),getPositions(Number(controls.count.value))]);
     if(initialized && lastEnergyScene && lastEnergyScene!==sceneKey)globalThis.invalidateSolarPrediction?.();
     lastEnergyScene=sceneKey;
     saveState();
@@ -499,7 +502,7 @@
       image=surface;
     }
     ctx.drawImage(image,0,0,width,height);
-    $('panel-shade').textContent=sun && sun.altitude>0 && light<=1e-12 ? 'Quay khỏi nắng' : exposure ? `≈ ${Math.round(shaded/(36*c.count)*100)}%` : '—';
+    $('panel-shade').textContent=sun && sun.altitude>0 && light<=1e-12 ? 'Quay khỏi nắng' : exposure ? `≈ ${Math.round(shaded/(36*c.count)*100)}%` : !sun?'Chờ vị trí mặt trời':sun.altitude<=0?'Ban đêm':lightingCache?.failed?'Không lấy được bóng che':'Đang tính bóng che…';
     if(sun && light>1e-12 && !exposure)$('panel-incidence').textContent='—';
     else if(sun)$('panel-incidence').textContent=`${Math.round(light*(1-shaded/(36*c.count))*100)}%`;
     // Draw the enlarged celestial arc over geometry so tall houses cannot hide it.

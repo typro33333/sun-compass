@@ -119,12 +119,8 @@ func TestStorageAndROI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if math.Abs(plan.Discharged-4.75) > 1e-9 || math.Abs(plan.Charged-5/.95) > 1e-9 || math.Abs(plan.Grid-7.25) > 1e-9 || math.Abs(plan.AnnualSavings-((24-7.25)*3000*365-1e6)) > 1e-6 {
+	if math.Abs(plan.Discharged-4.75) > 1e-9 || math.Abs(plan.Charged-5/.95) > 1e-9 || math.Abs(plan.Grid-7.25) > 1e-9 {
 		t.Fatalf("%+v", plan)
-	}
-	expected := (plan.AnnualSavings*10 - 5e7) / 5e7 * 100
-	if math.Abs(plan.ROI-expected) > 1e-8 {
-		t.Fatal(plan.ROI)
 	}
 	s.Capacity = 0
 	none, err := simulatePlanning(hours, 0, s)

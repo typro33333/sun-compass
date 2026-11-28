@@ -8,9 +8,10 @@ globalThis.isSolarCalculator = /^\/sol-calculator\/?$/.test(location.pathname ||
     document.getElementById('location-purpose').textContent = 'La bàn dùng tọa độ và ngày bạn chọn để lấy hướng nắng từ máy chủ Hướng Nắng.';
     return;
   }
-  globalThis.hideCurrentWeather = true;
   document.body.classList.add('calculator-page');
-  document.querySelector('.weather-card').hidden = true;
+  const weather=document.querySelector('.weather-card');
+  weather.hidden=false;
+  document.getElementById('planner-location').append(weather);
   document.getElementById('date-controls').hidden = true;
   document.title = 'Hướng Nắng — Tính toán & bố trí pin mặt trời';
   document.querySelector('.intro h1').textContent = 'Đặt pin. Đón trọn nắng.';

@@ -205,7 +205,11 @@ func forecastEnergy(ctx context.Context, in *energyInput) (energyResult, *weathe
 			seconds := min(int64(900), to-ts)
 			instant := time.Unix(ts, seconds*int64(time.Second)/2).UTC()
 			sun := solarPosition(instant, in.Location.Lat, in.Location.Lon)
-			integrateStep(in, &out, &row, gti, dni, float64(seconds)/3600, in.Scene.Exposure(sun, 6))
+			sample, err := in.Scene.expose(ctx, sun, 6, true)
+			if err != nil {
+				return out, nil, err
+			}
+			integrateStep(in, &out, &row, gti, dni, float64(seconds)/3600, sample)
 		}
 		out.Hours = append(out.Hours, row)
 		if reserve != nil && row.AC > 0 {

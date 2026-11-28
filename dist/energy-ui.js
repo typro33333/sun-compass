@@ -131,9 +131,24 @@ async function calculateEnergy() {
     if(controller.signal.aborted)throw new DOMException('Yêu cầu quá thời gian','AbortError');
     $('planning-result').hidden=!planning;
     if(planning){
-      const ids={charged:'charge',discharged:'discharge',grid:'import',exported:'export',annualSavings:'savings',roi:'roi'};
+      $('planning-savings').textContent=$('planning-roi').textContent='…';
+      $('planning-history').textContent='Đang tải bức xạ lịch sử…';
+      Energy.calculate('seasonal',{watts:scene.config.watts,system,scene:Energy.geometry(scene),location:forecastLocation,planning:planningScenario()},controller.signal)
+        .then(value=>{
+          if(request!==energyRequest || inputKey!==forecastInputKey())return;
+          $('planning-savings').textContent=value.annualSavings.toLocaleString(globalThis.solLocale?.()||'vi-VN',{maximumFractionDigits:0});
+          $('planning-roi').textContent=value.roi.toLocaleString(globalThis.solLocale?.()||'vi-VN',{maximumFractionDigits:2});
+          $('planning-history').textContent='Open-Meteo · '+value.year;
+        }).catch(()=>{
+          if(request!==energyRequest)return;
+          $('planning-savings').textContent=$('planning-roi').textContent='—';
+          $('planning-history').textContent='Thiếu dữ liệu bức xạ lịch sử để tính ROI.';
+        });
+      const ids={charged:'charge',discharged:'discharge',grid:'import',exported:'export'};
       for(const [key,id] of Object.entries(ids))$('planning-'+id).textContent=planning[key].toLocaleString(globalThis.solLocale?.() || 'vi-VN',{maximumFractionDigits:key==='annualSavings'?0:2});
     }
+    clearTimeout(noticeTimer);clearTimeout(noticeHide);
+    $('solar-notice').hidden=true;$('solar-notice').textContent='';
     renderEnergyAnalysis(result, forecastLocation.offset);
     const useReserve = $('energy-reserve').checked && reserve !== null;
     const output = useReserve ? reserve.kwh : result.kwh;
@@ -145,7 +160,7 @@ async function calculateEnergy() {
     $('energy-summary').textContent = `Ngày ${day} · PV DC ${kwp} kWp · Inverter AC ${system.inverter.acKw} kW · UTC${offset >= 0 ? '+' : ''}${offset}`;
     $('energy-formula').textContent=`DC lý tưởng ${result.rawDcKwh.toFixed(2)} kWh → trừ bóng che ${result.shadeLossKwh.toFixed(2)} → hao hụt DC ${Object.values(result.lossKwh).reduce((a,b)=>a+b,0).toFixed(2)} → DC còn ${result.dcKwh.toFixed(2)} kWh → MPPT mất ${result.mpptLossKwh.toFixed(2)} → chuyển đổi mất ${result.inverterLossKwh.toFixed(2)} → clipping AC ${result.clippingKwh.toFixed(2)} → AC ${result.kwh.toFixed(2)} kWh`;
     $('energy-detail').textContent=`Nhiệt độ ${result.lossKwh.temperature.toFixed(2)}, dây dẫn ${result.lossKwh.wiring.toFixed(2)}, bụi ${result.lossKwh.soiling.toFixed(2)}, khác ${result.lossKwh.other.toFixed(2)} kWh. Hiệu suất inverter ${system.inverter.efficiency}%. Lấy dữ liệu lúc ${new Date(data._cache?.fetched_at || Date.now()).toLocaleTimeString(globalThis.solLocale?.() || 'vi-VN')}.`;
-    $('energy-hourly').innerHTML=result.hours.map(h=>`<details><summary>${new Date((h.time+offset*3600)*1000).toISOString().slice(11,16)} · Kết thúc khoảng ${h.durationHours.toFixed(2)} giờ · DC ${h.dcKwh.toFixed(3)} / AC ${h.kwh.toFixed(3)} kWh</summary><table><thead><tr><th>Tấm</th><th>MPPT</th><th>Diện tích có nắng TB</th><th>DC kWh</th><th>AC phân bổ kWh</th></tr></thead><tbody>${h.panels.map(p=>`<tr><td>${p.id}</td><td>${p.mppt}</td><td>${(p.litFraction*100).toFixed(1)}%</td><td>${p.dcKwh.toFixed(3)}</td><td>${p.acKwh.toFixed(3)}</td></tr>`).join('')}</tbody></table></details>`).join('');
+
     $('energy-status').textContent = data._cache?.stale ? 'Đang dùng dữ liệu đã lưu do dịch vụ thời tiết tạm lỗi.' : 'Đã tính theo dự báo bức xạ có xét điều kiện mây của mô hình thời tiết.';
     $('energy-result').hidden = false;
     $('energy-preview-text').textContent = `☀ Hôm nay ${day}: khoảng ${output.toLocaleString(globalThis.solLocale?.() || 'vi-VN', { maximumFractionDigits: 1 })} kWh · hệ ${kwp} kWp${savedProfile ? '' : ' (mẫu, hãy chỉnh công suất)'} · ${weatherLabel} · Giảm dự phòng ${reduction.toFixed(1)}%${data._cache?.stale ? ' · Dữ liệu lưu tạm' : ''} · dự báo, không phải số điện đã đo`;
@@ -172,6 +187,7 @@ function renderEnergyAnalysis(result, offset) {
   $('energy-chart').innerHTML=`<svg viewBox="0 0 640 250" role="img" aria-label="Công suất DC và AC trung bình trong từng khoảng giờ, chi tiết qua thanh chọn bên dưới"><g>${grid}${ticks}</g><polyline class="chart-dc" points="${series('dcKwh')}"/><polyline class="chart-ac" points="${series('kwh')}"/><g aria-hidden="true"><line id="energy-chart-cursor" class="chart-cursor" y1="30" y2="210"/><circle id="energy-chart-dot-dc" class="chart-dot chart-dot-dc" r="8"/><circle id="energy-chart-dot-ac" class="chart-dot chart-dot-ac" r="5"/></g></svg>`;
   const slider=$('energy-chart-hour');slider.max=Math.max(0,hours.length-1);slider.value=String(Math.max(0,hours.findIndex(h=>h.kwh>0)));
   const show=()=>{const h=hours[Number(slider.value)];if(!h)return;
+    $('energy-hourly').innerHTML=`<table><thead><tr><th>Tấm</th><th>MPPT</th><th>Diện tích có nắng TB</th><th>DC kWh</th><th>AC phân bổ kWh</th></tr></thead><tbody>${h.panels.map(p=>`<tr><td>${p.id}</td><td>${p.mppt}</td><td>${(p.litFraction*100).toFixed(1)}%</td><td>${p.dcKwh.toFixed(3)}</td><td>${p.acKwh.toFixed(3)}</td></tr>`).join('')}</tbody></table>`;
     const px=x(Number(slider.value));
     $('energy-chart-cursor').setAttribute('x1',px);
     $('energy-chart-cursor').setAttribute('x2',px);

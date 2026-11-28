@@ -330,7 +330,7 @@ Chuỗi tính: DC từ bức xạ → bóng che → nhiệt độ → dây dẫn
 
 Hybrid cho nhập AC định mức, PV DC tối đa, hiệu suất, số MPPT, cửa sổ điện áp, dòng tối đa mỗi MPPT và điện áp vận hành giả định. Công suất DC lắp vượt mức PV thì từ chối tính. Panel được chia luân phiên vào MPPT; giới hạn dòng áp dụng riêng từng MPPT theo P/V. Cấu hình mới được lưu và xuất/nhập backup. Profile cũ vẫn đọc được; hao hụt gộp cũ không cộng vào mô hình mới, dùng các mặc định hao hụt riêng và cần kiểm tra lại trong form.
 
-Giới hạn: nhiệt độ là tỷ lệ cố định do người dùng nhập, chưa có mô hình nhiệt tế bào; MPPT chưa mô tả đấu chuỗi, Voc/Isc hay kiểm tra thiết kế điện. AC từng tấm là phân bổ theo DC được nhận, không phải đo độc lập. Chưa mô phỏng bóng giữa các tấm, che khuất bầu trời khuếch tán, diode bypass/mismatch hoặc giới hạn phát lên lưới. Kịch bản lưu trữ mô phỏng sạc/xả theo giờ. ROI giả định lặp ngày dự báo 365 lần mỗi năm với giá điện cố định, không tính tiền bán điện dư hoặc suy giảm thiết bị.
+Giới hạn: nhiệt độ là tỷ lệ cố định do người dùng nhập, chưa có mô hình nhiệt tế bào; MPPT chưa mô tả đấu chuỗi, Voc/Isc hay kiểm tra thiết kế điện. AC từng tấm là phân bổ theo DC được nhận, không phải đo độc lập. Chưa mô phỏng bóng giữa các tấm, che khuất bầu trời khuếch tán, diode bypass/mismatch hoặc giới hạn phát lên lưới. Kịch bản lưu trữ mô phỏng sạc/xả theo giờ. ROI giả định 12 ngày đại diện cho 12 tháng, gia quyền theo số ngày từng tháng với giá điện cố định, không tính tiền bán điện dư hoặc suy giảm thiết bị.
 
 Kiểm tra tự động: `bun run test` (bóng che riêng từng tấm, bất biến khi xoay nhà, bảo toàn năng lượng, không giảm thời tiết hai lần, clipping theo giờ, MPPT, thiếu DNI, khoảng giờ lẻ, ban đêm, luồng UI bằng mock, phản hồi cũ, persistence và proxy); `bun run test:build` (bundle sản xuất trong DOM/canvas giả lập và ngân sách hiệu năng). Chưa kiểm tra giao diện bằng trình duyệt thật, API thời tiết trực tiếp hoặc đối chiếu sản lượng đo ngoài thực tế.
 
@@ -339,3 +339,7 @@ Kiểm tra tự động: `bun run test` (bóng che riêng từng tấm, bất bi
 Báo cáo kiến trúc, lỗi tái hiện, contract geometry, kết quả test trước/sau và giới hạn: [docs/validation/AUDIT.md](docs/validation/AUDIT.md). Chạy regression CI bằng `bun run test:ci`.
 
 Trong Gợi ý có prototype so sánh bố trí theo kWh/năm với bức xạ năm giả định do người dùng nhập. Kết quả có preview và xác nhận trước khi áp dụng; không phải dự báo khí hậu năm từ Open-Meteo. Các gợi ý hiện hữu cũng cần xác nhận ở màn hình so sánh.
+
+ROI sử dụng GTI và DNI lịch sử của Open-Meteo. Gateway lấy năm dương lịch hoàn chỉnh gần nhất có ít nhất bảy ngày để nhà cung cấp cập nhật dữ liệu, rồi cache 12 biểu đồ bức xạ trung bình theo giờ trong Redis 30 ngày. Go mô phỏng mái, inverter và pin lưu trữ cho ngày 15 mỗi tháng và tính tổng theo số ngày trong tháng. Mô hình phản ánh biến động giữa các tháng nhưng làm phẳng các chuỗi ngày mưa liên tiếp trong cùng tháng. Khi thiếu dữ liệu lịch sử, dự báo điện trong ngày vẫn hoạt động và ROI hiển thị trạng thái thiếu dữ liệu.
+
+Đặt `SOL_PPROF=1` trên service calculator để thu CPU, heap hoặc goroutine profile qua Unix socket. Ví dụ, từ container chẩn đoán có quyền truy cập volume socket, chạy `curl --unix-socket /run/huongnang/calc.sock http://localhost/debug/pprof/heap -o heap.pprof`. Gateway công khai chỉ cho phép các phép tính trong danh sách API.

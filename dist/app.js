@@ -209,6 +209,7 @@ async function loadWeather(force = false) {
   const timeout = setTimeout(() => controller.abort(), 12000);
   weatherAvailable = false;
   $('clouds').innerHTML = '';
+  $('weather-time').textContent='';
   $('weather-status').textContent = 'Đang tải thời tiết…';
   $('weather-cloud').textContent = 'Mây: —';
   $('weather-rain').textContent = 'Mưa: —';
