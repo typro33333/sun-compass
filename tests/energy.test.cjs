@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { estimate } = require('../dist/energy.js');
+const { estimate } = require('./oracles/energy.cjs');
 const start = Date.parse('2026-11-13T00:00:00Z') / 1000;
 const time = Array.from({ length: 27 }, (_, i) => start + (i - 1) * 3600);
 const hourly = { time, global_tilted_irradiance: time.map(t => t > start && t <= start + 86400 ? 250 : 1000) };
@@ -14,7 +14,7 @@ assert.throws(() => estimate(missing, start, start + 86400, 11, 20), /chưa đ�
 assert.throws(() => estimate(hourly, start, start + 86400, -1, 20));
 assert.equal(estimate({ time, global_tilted_irradiance: time.map(() => 0) }, start, start + 86400, 11, 20).kwh, 0);
 console.log('Energy checks passed: 11 kWp conversion, day boundaries, fractional offsets, missing data, zero irradiance.');
-const energy = require('../dist/energy.js');
+const energy = require('./oracles/energy.cjs');
 const weather = { ...hourly, cloud_cover: time.map(() => 100), rain: time.map(() => 2), showers: time.map(() => 0) };
 const reserve = energy.weatherReserve(weather, result);
 assert(Math.abs(reserve.percent - 25) < 1e-9);

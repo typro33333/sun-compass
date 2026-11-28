@@ -10,7 +10,7 @@ let fail = false;
 const context = {
   isSolarCalculator: true,
   document: { getElementById: get, hidden: false },
-  Solar: require('../dist/solar.js'), Date, Math, URLSearchParams, AbortController,
+  Solar: require('./reference/solar.cjs'), Date, Math, URLSearchParams, AbortController,
   setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {},
   ForecastClient: { fetch: async () => {
     if (fail) throw new Error('Offline');

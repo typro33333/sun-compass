@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
-const G=require('../dist/panel-geometry.js'),E=require('../dist/energy.js');require('../dist/solar.js');
-const A=require('../dist/annual-placement.js');
+const G=require('./oracles/panel-geometry.cjs'),E=require('./oracles/energy.cjs');require('./reference/solar.cjs');
+const A=require('./oracles/annual-placement.cjs');
 const config={width:6,length:8,count:2,watts:600,roof:0,bearing:90,tilt:20,floors:0,x:0,z:0,house:0,left:0,right:3,leftRoof:0,rightRoof:1};
 const positions=[{x:-1.8,z:-2},{x:1.8,z:2}],system=E.defaultSystem();
 const scenario=A.scenario({year:2026,location:{lat:10.8231,lon:106.6297,offset:7},config,annualPoa:1600});

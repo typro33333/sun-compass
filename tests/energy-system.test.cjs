@@ -1,6 +1,6 @@
 // P0 acceptance tests written before implementation (2026-11-22).
 const assert=require('node:assert/strict'),fs=require('node:fs');
-const G=require('../dist/panel-geometry.js'),E=require('../dist/energy.js');
+const G=require('./oracles/panel-geometry.cjs'),E=require('./oracles/energy.cjs');
 const start=Date.parse('2026-06-21T00:00:00Z')/1000;
 const config={width:14,length:12,count:2,watts:600,roof:0,bearing:90,tilt:60,floors:0,x:0,z:0,house:0,left:0,right:0,leftRoof:0,rightRoof:0};
 const positions=[{x:-3,z:0},{x:3,z:0,rotation:90}];
@@ -10,7 +10,7 @@ const options=(c=config,sys=system)=>({...sys,scene:G.scene(c,positions),locatio
 const near=(a,b)=>assert(Math.abs(a-b)<1e-8,`${a} != ${b}`);
 let failures=0;
 function test(name,fn){try{fn();console.log('PASS',name);}catch(e){failures++;console.error('FAIL',name,e.message);}}
-test('weather reserve off by default',()=>assert(!/id="energy-reserve"[^>]*\bchecked/.test(fs.readFileSync(require.resolve('../dist/index.html'),'utf8'))));
+test('weather reserve off by default',()=>assert(!/id="energy-reserve"[^>]*\bchecked/.test(fs.readFileSync(require.resolve('../dist/compass.html'),'utf8'))));
 test('shared geometry and per-panel sampled area',()=>{
  const scene=G.scene({...config,right:2,rightRoof:1},positions);
  assert.equal(scene.modules.length,2);
@@ -94,7 +94,7 @@ test('night has no direct yield; diffuse zero stays zero',()=>{
  const r=E.estimateSystem(data(0,0),start,start+3600,o);near(r.kwh,0);assert(Number.isFinite(r.shadeLossKwh));
 });
 test('render masks agree with forecast per panel at four local times',()=>{
- const Solar=require('../dist/solar.js');
+ const Solar=require('./reference/solar.cjs');
  for(const minute of [390,540,720,990]) {
   const c={...config,house:122,bearing:295,left:5,right:5,leftRoof:1,rightRoof:1};
   const scene=G.scene(c,positions),sun=Solar.position('2026-06-21',minute,10.8231,106.6297,7);

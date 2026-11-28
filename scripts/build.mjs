@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import { createHash } from 'node:crypto';
 import { brotliCompressSync, gzipSync } from 'node:zlib';
 import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
@@ -5,28 +6,34 @@ const root = new URL('../', import.meta.url);
 const output = new URL('build/', root);
 await rm(output, { recursive: true, force: true });
 await mkdir(new URL('dist/', output), { recursive: true });
+if(!process.env.SOL_EXTERNAL_CALCULATOR)await import('./build-calculator.mjs');
 async function build(options) {
   const result = await Bun.build({ sourcemap: 'none', minify: true, ...options });
   if (!result.success) throw new AggregateError(result.logs, 'Build failed');
   return result;
 }
-const html = await readFile(new URL('dist/index.html', root), 'utf8');
+const html = await readFile(new URL('dist/compass.html', root), 'utf8');
 const sources = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(match => match[1]);
 const bodySources = sources.filter(name => name !== 'theme.js');
 // Combine classic scripts in their original order before minification, preserving
 // shared lexical state. Separate per-file minification would break these bindings.
-const combined = (await Promise.all(bodySources.map(name => readFile(new URL('dist/' + name, root), 'utf8')))).join('\n;\n')
-  // Test-only CommonJS exports would turn the combined browser entry into a
-  // deferred module factory. Browser code uses the window/globalThis exports.
-  .replace(/if\s*\(\s*typeof module\s*!==\s*['"]undefined['"]\s*\)\s*module\.exports\s*=\s*root\.\w+;/g, '');
-await build({
-  entrypoints: ['sol:app'], target: 'browser', format: 'iife',
-  outdir: new URL('dist/', output).pathname, naming: 'app.js',
-  plugins: [{ name: 'browser-entry', setup(builder) {
-    builder.onResolve({ filter: /^sol:app$/ }, () => ({ path: 'app', namespace: 'sol' }));
-    builder.onLoad({ filter: /.*/, namespace: 'sol' }, () => ({ contents: `(() => {\n${combined}\n})();`, loader: 'js' }));
-  } }],
-});
+async function buildClassicBundle(filename,names){
+  const combined = (await Promise.all(names.map(name => readFile(new URL('dist/' + name, root), 'utf8')))).join('\n;\n')
+    // Test-only CommonJS exports would turn the combined browser entry into a
+    // deferred module factory. Browser code uses the window/globalThis exports.
+    .replace(/if\s*\(\s*typeof module\s*!==\s*['"]undefined['"]\s*\)\s*module\.exports\s*=\s*root\.\w+;/g, '');
+  await build({
+    entrypoints: ['sol:app'], target: 'browser', format: 'iife',
+    outdir: new URL('dist/', output).pathname, naming: filename,
+    plugins: [{ name: 'browser-entry', setup(builder) {
+      builder.onResolve({ filter: /^sol:app$/ }, () => ({ path: 'app', namespace: 'sol' }));
+      builder.onLoad({ filter: /.*/, namespace: 'sol' }, () => ({ contents: `(() => {\n${combined}\n})();`, loader: 'js' }));
+    } }],
+  });
+}
+const compassSources=new Set(['calculator-page.js','i18n.js','solar.js','app.js','scene.js','sensor.js','startup.js']);
+await buildClassicBundle('app.js',bodySources);
+await buildClassicBundle('compass.js',bodySources.filter(name=>compassSources.has(name)));
 await build({ entrypoints: [new URL('dist/theme.js', root).pathname], target: 'browser', format: 'iife', outdir: new URL('dist/', output).pathname, naming: 'theme.js' });
 await build({ entrypoints: [new URL('dist/style.css', root).pathname], target: 'browser', outdir: new URL('dist/', output).pathname, naming: 'style.css', external: ['https://*'] });
 let inserted = false;
@@ -36,18 +43,20 @@ let productionHtml = html.replace(/<script src="([^"]+)"><\/script>/g, (tag, nam
   inserted = true;
   return '<script src="app.js"></script>';
 });
+await build({entrypoints:[new URL('dist/roof-gpu.js',root).pathname],target:'browser',format:'esm',outdir:new URL('dist/',output).pathname,naming:'roof-gpu.js',banner:'/*! '+readFileSync(new URL('node_modules/three/LICENSE',root),'utf8')+' */'});
 await cp(new URL('dist/favicon.svg', root), new URL('dist/favicon.svg', output));
-const routes = [['/','index.html'], ['/index.html','index.html'], ['/sol-calculator','index.html'], ['/sol-calculator/','index.html']];
+const routes = [['/','index.html'], ['/index.html','index.html'], ['/sun-compass','compass.html'], ['/sun-compass/','compass.html'], ['/sol-calculator','planner.html'], ['/sol-calculator/','planner.html']];
 const extraPages = ['system-sizing.html','panel-dimensions.html'];
-const pageHtml = new Map(await Promise.all(extraPages.map(async name => [name, await readFile(new URL('dist/'+name, root),'utf8')])));
+const pageHtml = new Map(await Promise.all(['index.html',...extraPages].map(async name => [name, await readFile(new URL('dist/'+name, root),'utf8')])));
+pageHtml.set('compass.html',productionHtml.replace('src="app.js"','src="compass.js"'));
 const extraScripts = ['system-sizing.js','panel-geometry.js','info-page.js','i18n.js'];
 for (const name of extraScripts) await build({entrypoints:[new URL('dist/'+name,root).pathname],target:'browser',format:'iife',outdir:new URL('dist/',output).pathname,naming:name});
 for (const name of extraPages) {
   const route='/'+name.replace('.html','');
   routes.push([route,name],[route+'/',name]);
 }
-const publicFiles = ['index.html',...extraPages];
-for (const name of ['theme.js','app.js','style.css','favicon.svg',...extraScripts]) {
+const publicFiles = ['planner.html','compass.html','index.html',...extraPages];
+for (const name of ['theme.js','app.js','compass.js','roof-gpu.js','style.css','favicon.svg',...extraScripts]) {
   const bytes = await readFile(new URL('dist/' + name, output));
   const hash = createHash('sha256').update(bytes).digest('hex').slice(0,12);
   const extension = name.slice(name.lastIndexOf('.'));
@@ -62,7 +71,7 @@ for (const name of ['theme.js','app.js','style.css','favicon.svg',...extraScript
 }
 const browserAsset = publicFiles.find(name => name.startsWith('app.'));
 productionHtml = productionHtml.replace('</head>', `<link rel="preload" as="script" href="${browserAsset}"></head>`);
-await writeFile(new URL('dist/index.html', output), productionHtml);
+await writeFile(new URL('dist/planner.html', output), productionHtml);
 for (const [name, content] of pageHtml) await writeFile(new URL('dist/'+name,output),content);
 for (const name of publicFiles) {
   const bytes = await readFile(new URL('dist/' + name, output));

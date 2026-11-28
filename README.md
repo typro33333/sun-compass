@@ -1,6 +1,6 @@
-# Sol — La bàn mặt trời
+# Hướng Nắng
 
-Giao diện HTML, CSS và JavaScript với máy chủ Bun phục vụ file và API proxy có cache dùng chung. Cần cài Bun; không cần dependencies. `bun run start` chạy không theo dõi thay đổi; `PORT=8080 bun run dev` đổi cổng.
+Giao diện HTML, CSS và JavaScript với máy chủ Bun phục vụ file và API proxy có cache dùng chung. Cài Bun và Go 1.27, sau đó chạy `bun install`. `bun run start` chạy không theo dõi thay đổi; `PORT=8080 bun run dev` đổi cổng.
 
 ## Chạy cục bộ
 
@@ -11,11 +11,22 @@ bun run dev
 
 Mở http://localhost:5173. GPS và cảm biến yêu cầu HTTPS hoặc localhost cùng quyền trình duyệt. Để thử trên điện thoại, chạy máy chủ Bun sau reverse proxy hoặc tunnel HTTPS. Chỉ upload `dist/` sẽ không đủ vì thời tiết và dự báo điện cần `/api/forecast`.
 
+## Image và dịch vụ Docker
+
+`Dockerfile.frontend` đóng gói giao diện và gateway Bun. `backend/Dockerfile` biên dịch bằng Go 1.27 và chỉ đưa binary tính toán vào image runtime. Chạy `docker compose -f deployments/compose.yaml up -d --build` để khởi động cả hai cùng Redis. Mô phỏng mái tải Three.js khi mở công cụ, dùng WebGPU trên thiết bị hỗ trợ, với WebGL 2 hoặc Canvas làm phương án dự phòng. Các lần xoay camera dùng lại buffer hình học. Service `calculator` tắt networking và phục vụ qua socket trên volume `calc-socket`. Gateway gắn volume ở chế độ chỉ đọc. Redis chỉ dùng mạng Compose.
+
+## Kiến trúc tính toán
+
+Trình duyệt giữ mô hình mái, thao tác kéo thả, cảm biến la bàn và biểu đồ. Bun phục vụ giao diện và nhận các yêu cầu JSON tại `/api/calc/*`. Trang gợi ý hệ thống hiển thị số liệu ban đầu từ server, sau đó cập nhật khi người dùng chỉnh biểu mẫu. Dữ liệu thời tiết đến từ proxy cùng origin.
+
+Go thực hiện tính toán trong tiến trình riêng và lắng nghe trên Unix socket trong thư mục tạm riêng của ứng dụng. Binary `build/solar-calc` nằm ngoài thư mục tài nguyên web. Không cần mở thêm cổng. Gateway giới hạn kích thước yêu cầu, giới hạn số phép tính đồng thời và cache kết quả thành công trong Redis 15 phút theo hàm băm đầu vào. Khi sửa mã Go trong lúc chạy dev, khởi động lại `bun run dev` để biên dịch lại.
+
 ## Trang tính toán riêng
 
-- `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
-- `/sol-calculator` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
-- Trang tính toán chỉ hiển thị mô phỏng nhà; la bàn 2D/3D riêng được giữ ở trang chủ. Nút bật cảm biến nằm trong nhóm **La bàn thiết bị**. Nút **Theo la bàn thiết bị** trên mô hình nhà dùng chung cảm biến; kéo/phím mũi tên chuyển sang xoay tay. Thanh ngày/tháng đặt cạnh thanh thời gian, cập nhật đồng thời hai mô hình.
+- `/`: trang giới thiệu và liên kết đến bốn công cụ.
+- `/sun-compass`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
+- `/sol-calculator` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Mô phỏng hướng nắng** từ menu để chuyển trang.
+- Trang tính toán chỉ hiển thị mô phỏng nhà; la bàn 2D/3D nằm tại `/sun-compass`. Trang chủ giới thiệu các công cụ của Hướng Nắng. Nút bật cảm biến nằm trong nhóm **La bàn thiết bị**. Nút **Theo la bàn thiết bị** trên mô hình nhà dùng chung cảm biến; kéo/phím mũi tên chuyển sang xoay tay. Thanh ngày/tháng đặt cạnh thanh thời gian, cập nhật đồng thời hai mô hình.
 - Xoay mặt tiền nhà 0–360° sẽ xoay cả pin và hai nhà bên; hướng pin trong dự báo vẫn tính từ Bắc. Nhà trái/phải được xác định khi đứng trong nhà nhìn ra mặt tiền, chỉnh độc lập 0–5 tầng (0 để bỏ nhà), mỗi tầng 3,2 m, áp sát nhà chính (không có khoảng cách).
 - Desktop đặt mô phỏng bên trái, nhóm điều chỉnh thu gọn bên phải; mobile xếp mô phỏng, thanh thời gian rồi các nhóm điều chỉnh. Cấu hình điện và kết quả nằm bên dưới mô phỏng. Khung 3D được thu gọn; vòng cung và mặt trời hiển thị trên lớp riêng để nhà cao không che khuất. Bóng che trên pin lấy mẫu 36 ô và dò tia tới mặt trời qua hai khối nhà bên, chưa trừ vào kWh dự báo.
 - Mô hình mái phẳng 8 × 10 m, tầng trệt + 0–3 lầu, mỗi tầng 3,2 m. Thêm từng lầu, xoay góc nhìn bằng kéo/phím mũi tên, chỉnh hướng mặt pin 0–360°, nghiêng 0–90° và dịch cụm pin trên mái.
@@ -43,7 +54,7 @@ node --check dist/app.js
 - Bật la bàn thiết bị trên điện thoại và giữ máy nằm phẳng; nếu không có cảm biến hướng tuyệt đối, dùng chế độ Bắc cố định.
 - Bán kính trên biểu đồ biểu thị độ cao: đường tròn ngoài là đường chân trời, tâm là thiên đỉnh. Khi mặt trời ở dưới chân trời, điểm màu xám nằm ở vành ngoài theo phương vị.
 
-Tính toán gần đúng theo [NOAA](https://www.gml.noaa.gov/grad/solcalc/solareqns.PDF), ngưỡng mọc/lặn −0.833°. Không tính địa hình hay vật cản; cảm biến có thể bị nhiễu từ. Tọa độ được gửi tới API Open-Meteo để lấy thời tiết; phép tính mặt trời vẫn chạy trong trình duyệt. Giao diện dùng font hệ thống để tránh tải font bên ngoài.
+Tính toán gần đúng theo [NOAA](https://www.gml.noaa.gov/grad/solcalc/solareqns.PDF), ngưỡng mọc/lặn −0.833°. Không tính địa hình hay vật cản; cảm biến có thể bị nhiễu từ. Tọa độ được gửi tới API Open-Meteo để lấy thời tiết; dịch vụ Go tính bảng vị trí mặt trời cho ngày đã chọn. Giao diện dùng font hệ thống để tránh tải font bên ngoài.
 
 `.openai/hosting.json` hiện vẫn là cấu hình hosting tĩnh cũ và chưa hỗ trợ API proxy mới. Muốn triển khai Sites phải chuyển sang server/Worker hoặc định tuyến `/api/forecast` về backend Bun trước; không xuất bản chỉ thư mục `dist/`.
 
@@ -53,7 +64,7 @@ Nút trên header mở công cụ ước tính **kWh cả ngày hôm nay**, đ�
 
 Dùng `global_tilted_irradiance` theo giờ từ Open-Meteo (W/m², trung bình giờ trước mốc thời gian). Cộng phần giao của mỗi giờ với ngày địa phương, đổi sang kWh/m² rồi tính `kWh = kWp × giờ nắng tương đương × (1 − hao hụt/100)`. Ví dụ minh họa: 11 kWp × 5 giờ × 0,8 = 44 kWh; đây không phải dự báo thực tế khi chưa tải dữ liệu.
 
-Dự báo bức xạ đã phản ánh mây trong mô hình, không nhân thêm hệ số mây. Chưa mô hình hóa riêng bóng che, nhiệt độ tấm pin, clipping inverter, lưu trữ hay cắt giảm phát. Lỗi API hoặc thiếu giờ trả thông báo lỗi, không thay bằng dữ liệu giả. API nhận tọa độ và hướng/nghiêng tấm pin; không gửi công suất hệ thống.
+Dự báo bức xạ đã phản ánh mây trong mô hình, không nhân thêm hệ số mây. Mô hình Go tính bóng che từng tấm, hao hụt DC, giới hạn MPPT và clipping inverter. Lỗi API hoặc thiếu giờ trả thông báo lỗi, không thay bằng dữ liệu giả. API nhận tọa độ và hướng/nghiêng tấm pin; không gửi công suất hệ thống.
 
 ## Cấu hình lưu trên trình duyệt
 
@@ -81,7 +92,7 @@ Cần Bun và **Redis standalone 7.2+**. Dùng Docker Compose để chạy Redis
 
 ```sh
 cd sun-compass
-docker compose -f deployments/compose.yaml up -d redis
+docker compose -f deployments/compose.yaml run -d --publish 127.0.0.1:6379:6379 redis
 bun run dev
 ```
 
@@ -98,14 +109,15 @@ Luồng: trình duyệt → `/api/forecast` cùng origin → Redis → Open-Mete
 - Redis lỗi: trả 503, không gọi upstream ngoài quota. Cache còn tươi trong sessionStorage của trình duyệt vẫn dùng được. Request mới cần Redis hoạt động.
 - Trình duyệt giữ tối đa 16 kết quả theo TTL server; hủy một người dùng không hủy request chia sẻ. Endpoint chỉ nhận trường và khoảng ngày đã cho phép, cố định host nhà cung cấp.
 
-Compose bật AOF và volume để giữ cache/quota qua restart; `maxmemory-policy noeviction` tránh đẩy mất khóa/quota khi đầy bộ nhớ. Khi Redis đầy, hệ thống trả lỗi thay vì bỏ qua bảo vệ; cần theo dõi và tăng dung lượng. Snapshot/AOF không đảm bảo không mất dữ liệu khi hỏng máy; đặt quota thấp hơn hạn mức nhà cung cấp để có dư địa. Không mở cổng Redis ra Internet; Compose chỉ bind localhost.
+Compose bật AOF và volume để giữ cache/quota qua restart; `maxmemory-policy noeviction` tránh đẩy mất khóa/quota khi đầy bộ nhớ. Khi Redis đầy, hệ thống trả lỗi thay vì bỏ qua bảo vệ; cần theo dõi và tăng dung lượng. Snapshot/AOF không đảm bảo không mất dữ liệu khi hỏng máy; đặt quota thấp hơn hạn mức nhà cung cấp để có dư địa. Không mở cổng Redis ra Internet; Khi chạy riêng Redis cho môi trường dev, lệnh trên chỉ chuyển tiếp cổng tới loopback.
 
 API miễn phí Open-Meteo dành cho phi thương mại, có quota riêng và có thể tính một request nhiều đơn vị. Đặt `OPEN_METEO_API_KEY` trong backend để dùng customer endpoint nếu cần. Xem [pricing](https://open-meteo.com/en/pricing) và [terms](https://open-meteo.com/en/terms). Redis không loại bỏ chi phí cho các ô vị trí hoàn toàn khác nhau.
 
 ### Trang tính toán riêng
 
-- `/`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
-- `/sol-calculator` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Tính toán điện mặt trời** từ menu để chuyển trang.
+- `/`: trang giới thiệu và liên kết đến bốn công cụ.
+- `/sun-compass`: la bàn và quỹ đạo mặt trời; không tải dự báo thời tiết/sản lượng.
+- `/sol-calculator` (hỗ trợ cả dấu `/` cuối): dự báo điện và bố trí pin 3D (ẩn ngày khám phá và thời tiết hiện tại). Bấm **Mô phỏng hướng nắng** từ menu để chuyển trang.
 - Mô hình mái phẳng 8 × 10 m, tầng trệt + 0–3 lầu, mỗi tầng 3,2 m. Thêm từng lầu, xoay góc nhìn bằng kéo/phím mũi tên, chỉnh hướng mặt pin 0–360°, nghiêng 0–90° và dịch cụm pin trên mái.
 - Hướng/góc nghiêng được đồng bộ với biểu mẫu dự báo. Khi chỉnh thông số, kết quả cũ bị ẩn và yêu cầu đang chờ bị hủy; bấm tính để lấy dự báo mới.
 - Chọn ngày/tháng và vị trí, kéo thanh thời gian hoặc phát từ bình minh tới hoàng hôn. Có thể nhập tọa độ thủ công nếu GPS bị từ chối. Các phép tính hình học vẫn chạy khi API thời tiết không khả dụng.
@@ -186,7 +198,7 @@ docker compose -f deployments/compose.yaml logs -f app
 docker compose -f deployments/compose.yaml ps
 ```
 
-Mở `http://localhost:5173`. App chờ Redis healthy, dùng `redis://redis:6379`, chạy non-root và xuất log JSON. Docker healthcheck gọi HEAD `/app.js`, không tạo log thiết bị mới. Redis vẫn giữ image `redis:8-alpine`, cổng và volume hiện có. Build dùng multi-stage với Bun 1.3.14, không đưa `.env`, Git hoặc credentials vào image.
+Mở `http://localhost:5173`. App chờ Redis healthy, dùng `redis://redis:6379`, chạy non-root và xuất log JSON. Docker healthcheck gọi HEAD `/app.js`, không tạo log thiết bị mới. Redis vẫn giữ image `redis:8-alpine` và volume hiện có. Build dùng multi-stage với Bun 1.3.14, không đưa `.env`, Git hoặc credentials vào image.
 
 Biến Compose: `APP_PORT` (mặc định 5173), `LOG_LEVEL`, `COOKIE_SECURE`, `OPEN_METEO_API_KEY`. Có thể truyền file cấu hình từ thư mục dự án:
 
@@ -239,7 +251,7 @@ Build tạo sẵn Brotli (`.br`) và Gzip (`.gz`); server chọn theo `Accept-En
 
 Font hệ thống thay Google Fonts `@import`, bỏ request DNS/font/CSS bên ngoài. Preload bundle app từ head. Log visitor được chuẩn bị cookie đồng bộ nhưng ghi Redis ở nền, không làm chậm HTML; trong trường hợp process bị dừng ngay sau response, log nền có thể chưa hoàn tất. Quỹ đạo 2D cache theo ngày/vị trí/múi giờ; chỉ chiếu lại khi đổi hướng. Chế độ tiếng Việt không chạy MutationObserver dịch trên mọi lần cập nhật SVG.
 
-Kiểm tra bằng `bun run test:build`: startup bundle/GPS/thanh giờ, giải nén Brotli/Gzip, đàm phán q=0, cache hash và HTML không chờ Redis. Số đo build hiện tại: app khoảng 49,7 KB → 15,4 KB Brotli; CSS 29,7 KB → 5,7 KB. Chưa xác minh điểm Lighthouse/PageSpeed hay Core Web Vitals trên website đã deploy. Liên kết báo cáo người dùng gửi chưa truy cập được từ môi trường thực thi; cần chạy lại PageSpeed sau khi deploy để so sánh.
+Kiểm tra bằng `bun run test:build`: startup bundle/GPS/thanh giờ, giải nén Brotli/Gzip, đàm phán q=0, cache hash và HTML không chờ Redis. Chưa xác minh điểm Lighthouse/PageSpeed hay Core Web Vitals trên website đã deploy. Liên kết báo cáo người dùng gửi chưa truy cập được từ môi trường thực thi; cần chạy lại PageSpeed sau khi deploy để so sánh.
 
 ### Cài đặt mô phỏng 3D
 
@@ -264,7 +276,7 @@ Trong dropdown, **Nhà chính & mái** cho phép đổi chiều dài 8–30 m (n
 
 `sol-planner-v1` trong localStorage lưu nhà/mái, chiều dài, số tầng nhà bên và kiểu mái, hướng nhà, hướng/độ nghiêng pin, tọa độ từng tấm đã áp dụng, góc nhìn/zoom, tọa độ mô phỏng/múi giờ và cấu hình công suất/hao hụt/dự phòng. Khi mở lại, cấu hình mô phỏng ưu tiên hơn hướng/góc pin trong cookie dự báo điện cũ. Vị trí mô phỏng đã lưu không bị GPS tự động ghi đè; nút **Dùng vị trí hiện tại** cho phép cập nhật chủ động. Ngày/giờ bắt đầu theo hôm nay để tránh dùng ngày mô phỏng cũ.
 
-Dữ liệu gắn với trình duyệt và địa chỉ website, chưa đồng bộ tài khoản/thiết bị; xóa dữ liệu website sẽ xóa mô phỏng. Trình duyệt không cho lưu sẽ có thông báo ngay dưới mô hình. Dữ liệu sai định dạng/phiên bản hoặc ngoài giới hạn không được khôi phục. Không lưu riêng một mã định danh client hay gửi cấu hình nhà lên máy chủ.
+Dữ liệu gắn với trình duyệt và địa chỉ website, chưa đồng bộ tài khoản/thiết bị; xóa dữ liệu website sẽ xóa mô phỏng. Trình duyệt không cho lưu sẽ có thông báo ngay dưới mô hình. Dữ liệu sai định dạng/phiên bản hoặc ngoài giới hạn không được khôi phục. Khi tính toán, trình duyệt gửi hình học mái và vật cản, cấu hình điện và tọa độ cần thiết tới gateway cùng origin. Redis lưu tạm kết quả theo hàm băm của đầu vào.
 
 Trang `/sol-calculator` ẩn cả mục **Thời gian có ánh sáng**, vẫn giữ thời gian mọc/lặn ở phần điều khiển. Kiểm thử lưu/khôi phục: `node tests/planner-state.test.cjs`; kiểm thử tải lại bản build, hủy bản nháp và kết quả gợi ý hết hạn: `bun run test:build`.
 
@@ -318,7 +330,7 @@ Chuỗi tính: DC từ bức xạ → bóng che → nhiệt độ → dây dẫn
 
 Hybrid cho nhập AC định mức, PV DC tối đa, hiệu suất, số MPPT, cửa sổ điện áp, dòng tối đa mỗi MPPT và điện áp vận hành giả định. Công suất DC lắp vượt mức PV thì từ chối tính. Panel được chia luân phiên vào MPPT; giới hạn dòng áp dụng riêng từng MPPT theo P/V. Cấu hình mới được lưu và xuất/nhập backup. Profile cũ vẫn đọc được; hao hụt gộp cũ không cộng vào mô hình mới, dùng các mặc định hao hụt riêng và cần kiểm tra lại trong form.
 
-Giới hạn: nhiệt độ là tỷ lệ cố định do người dùng nhập, chưa có mô hình nhiệt tế bào; MPPT chưa mô tả đấu chuỗi, Voc/Isc hay kiểm tra thiết kế điện. AC từng tấm là phân bổ theo DC được nhận, không phải đo độc lập. Chưa mô phỏng bóng giữa các tấm, che khuất bầu trời khuếch tán, diode bypass/mismatch, pin lưu trữ hoặc giới hạn phát lên lưới. Không dùng kết quả thay hồ sơ thiết kế thi công.
+Giới hạn: nhiệt độ là tỷ lệ cố định do người dùng nhập, chưa có mô hình nhiệt tế bào; MPPT chưa mô tả đấu chuỗi, Voc/Isc hay kiểm tra thiết kế điện. AC từng tấm là phân bổ theo DC được nhận, không phải đo độc lập. Chưa mô phỏng bóng giữa các tấm, che khuất bầu trời khuếch tán, diode bypass/mismatch hoặc giới hạn phát lên lưới. Kịch bản lưu trữ mô phỏng sạc/xả theo giờ. ROI giả định lặp ngày dự báo 365 lần mỗi năm với giá điện cố định, không tính tiền bán điện dư hoặc suy giảm thiết bị.
 
 Kiểm tra tự động: `bun run test` (bóng che riêng từng tấm, bất biến khi xoay nhà, bảo toàn năng lượng, không giảm thời tiết hai lần, clipping theo giờ, MPPT, thiếu DNI, khoảng giờ lẻ, ban đêm, luồng UI bằng mock, phản hồi cũ, persistence và proxy); `bun run test:build` (bundle sản xuất trong DOM/canvas giả lập và ngân sách hiệu năng). Chưa kiểm tra giao diện bằng trình duyệt thật, API thời tiết trực tiếp hoặc đối chiếu sản lượng đo ngoài thực tế.
 

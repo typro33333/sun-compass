@@ -3,7 +3,7 @@ const nodes = new Map(), labels = new Map();
 const $ = id => { if (!nodes.has(id)) nodes.set(id, { value:'2026-11-14',clientWidth:400,clientHeight:350,attrs:{},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,fn){this[k]=fn;},setPointerCapture(){},click(){this.onclick?.();} }); return nodes.get(id); };
 const ctx = new Proxy({ createRadialGradient:()=>({addColorStop(){}}),fillText:(label,x,y)=>labels.set(label,{x,y}) },{get:(o,k)=>o[k]||(()=>{})});
 $('sun-canvas').getContext=()=>ctx;
-const context={ $,document:{querySelector:()=>$('wrap'),documentElement:{dataset:{}}},window:{devicePixelRatio:1},locationReady:true,heading:0,compassState:{ready:true,active:true},lat:10.8,lon:106.6,offset:7,minute:720,events:{rise:360,set:1080},fmt:()=> '12:00',Solar:require('../dist/solar.js'),ResizeObserver:class{observe(){}},MutationObserver:class{observe(){}} };
+const context={ $,document:{querySelector:()=>$('wrap'),documentElement:{dataset:{}}},window:{devicePixelRatio:1},locationReady:true,heading:0,compassState:{ready:true,active:true},lat:10.8,lon:106.6,offset:7,minute:720,events:{rise:360,set:1080},fmt:()=> '12:00',Solar:require('./reference/solar.cjs'),ResizeObserver:class{observe(){}},MutationObserver:class{observe(){}} };
 vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../dist/scene.js'),'utf8'),context);
 $('view-3d').onclick();assert(Math.abs(labels.get('Bắc').x-200)<.01);
 context.heading=90;context.renderSolarScene();assert(labels.get('Bắc').x<100,'Facing east must move north to the left, matching 2D');

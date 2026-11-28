@@ -21,7 +21,7 @@
   function snapshot() {
     return {version:1,config:configuration(),positions:getPositions(Number(controls.count.value)),view:{yaw,pitch,zoom},
       location:locationReady?{lat,lon,offset}:savedState?.location,
-      energy:{kwp:Number($('energy-kwp').value),loss:0,reserve:$('energy-reserve').checked,system:globalThis.getStoredEnergySystem()}};
+      energy:{kwp:Number($('energy-kwp').value),loss:0,reserve:$('energy-reserve').checked,system:globalThis.getStoredEnergySystem(),planning:globalThis.storedPlanningScenario()}};
   }
   function saveState() {
     if(!initialized)return;
@@ -43,6 +43,13 @@
   function colorOf(color) {
     if(!colors.has(color)) {if(colors.size>=128)colors.clear();colorContext.clearRect(0,0,1,1);colorContext.fillStyle=color;colorContext.fillRect(0,0,1,1);colors.set(color,[...colorContext.getImageData(0,0,1,1).data]);}
     return colors.get(color);
+  }
+  let gpu=null,faceCache;
+  if((navigator.gpu && globalThis.isSecureContext) || globalThis.WebGL2RenderingContext){
+    const path=canvas.getAttribute('data-renderer');
+    import(new URL(path,document.baseURI).href).then(module=>module.createRoofRenderer(()=>{
+      gpu?.dispose();gpu=null;scheduleRender();
+    })).then(renderer=>{gpu=renderer;scheduleRender();}).catch(()=>{});
   }
   function getPositions(count,automatic=false) {
     const c=configuration();
@@ -167,7 +174,7 @@
   function manual() {follow=false;$('panel-follow').setAttribute('aria-pressed','false');}
   $('panel-follow').onclick=()=>{follow=true;$('panel-follow').setAttribute('aria-pressed','true');if(!globalThis.compassState?.active)$('sensor').click();render();};
   $('floor-add').onclick = () => { controls.floors.value = Math.min(3,Number(controls.floors.value)+1); labels();render(); };
-  let pendingPlacement=null,placementRun=0;
+  let pendingPlacement=null,placementRun=0,annualController;
   const previewDialog=$('placement-preview');
   const placementKey=()=>simulationKey()+JSON.stringify(['inverter-ac','inverter-pv','inverter-efficiency','mppt-count','mppt-min','mppt-max','mppt-current','mppt-operating','loss-temperature','loss-wiring','loss-soiling','loss-other','placement-poa','placement-gap'].map(id=>$(id).value));
   function planSvg(c,positions) {
@@ -183,15 +190,17 @@
     $('placement-confirm').disabled=false;
     if(!previewDialog.open)previewDialog.showModal();
   }
-  function cancelPlacement(){placementRun++;pendingPlacement=null;previewDialog.close();}
+  function cancelPlacement(){annualController?.abort();placementRun++;pendingPlacement=null;previewDialog.close();}
   $('placement-cancel').onclick=cancelPlacement;
-  previewDialog.addEventListener('cancel',()=>{placementRun++;pendingPlacement=null;});
+  previewDialog.addEventListener('cancel',()=>{annualController?.abort();placementRun++;pendingPlacement=null;});
   $('placement-confirm').onclick=()=>{
     if(!pendingPlacement)return;
     if(pendingPlacement.key!==placementKey()){$('placement-preview-status').textContent='Cấu hình đã thay đổi. Hãy tạo đề xuất mới.';$('placement-confirm').disabled=true;pendingPlacement=null;return;}
     const apply=pendingPlacement.apply;pendingPlacement=null;previewDialog.close();apply();
   };
   $('panel-suggestion-annual').onclick=async()=>{
+    annualController?.abort();
+    const controller=annualController=new AbortController();
     const run=++placementRun,key=placementKey(),c=configuration(),positions=getPositions(c.count).map(p=>({...p}));
     $('panel-suggestion-dialog').close();pendingPlacement=null;
     $('placement-confirm').disabled=true;$('placement-comparison').hidden=true;
@@ -200,10 +209,10 @@
       if(!locationReady)throw Error('Cần vị trí trước khi đánh giá năm.');
       const annualPoa=Number($('placement-poa').value),spacing=Number($('placement-gap').value),year=Number($('date').value.slice(0,4));
       const climate=AnnualPlacement.scenario({year,location:{lat,lon,offset},config:c,annualPoa});
-      const iterator=AnnualPlacement.propose({config:c,positions,system:globalThis.readEnergySystem(),scenario:climate,spacing,step:1});
+      const iterator=AnnualPlacement.propose({config:c,positions,system:globalThis.readEnergySystem(),scenario:climate,spacing,step:1,signal:controller.signal});
       let next;
       do {
-        next=iterator.next();
+        next=await iterator.next();
         if(!next.done){$('placement-preview-status').textContent=`Đang xếp hạng ${next.value.completed}/${next.value.total} vị trí…`;await new Promise(resolve=>setTimeout(resolve,0));}
         if(run!==placementRun)return;
         if(key!==placementKey())throw Error('Cấu hình đã thay đổi. Hãy tạo đề xuất mới.');
@@ -216,31 +225,26 @@
       $('placement-ranking').innerHTML=`<summary>Xếp hạng vị trí (10 vị trí đầu / ${result.ranking.length})</summary><p>kWh DC/năm của một tấm trước MPPT/inverter. % là năng lượng mất do bóng che / DC ban đầu, không phải diện tích che tức thời.</p><table><thead><tr><th>Vị trí x, z (m)</th><th>DC kWh/năm</th><th>Mất do che</th></tr></thead><tbody>${result.ranking.slice(0,10).map(r=>`<tr><td>${r.position.x.toFixed(1)}, ${r.position.z.toFixed(1)} · ${r.position.rotation||0}°</td><td>${fmt(r.dcKwh)}</td><td>${fmt(r.shadeFraction*100)}%</td></tr>`).join('')}</tbody></table>`;
     }catch(error){if(run===placementRun)$('placement-preview-status').textContent=error.message;}
   };
+  let activeRecommendation;
   async function optimize(annual = false, layout = false) {
     if (!locationReady) { $('panel-advice').textContent='Cần GPS hoặc nhập tọa độ trước khi gợi ý.';return; }
     const year=Number($('date').value.slice(0,4));
     if (!Number.isInteger(year) || year<1) return;
     if($('panel-optimize').disabled)return;
     const c=configuration(),positions=getPositions(c.count).map(p=>({...p})),key=simulationKey();
-    const samples=[];
-    if(annual) {
-      for(let month=0;month<12;month++) {
-        const date=`${year}-${String(month+1).padStart(2,'0')}-15`,weight=new Date(Date.UTC(year,month+1,0)).getUTCDate();
-        for(let time=15;time<1440;time+=30)samples.push({...Solar.position(date,time,lat,lon,offset),weight});
-      }
-    } else for(let time=15;time<1440;time+=30)samples.push(Solar.position($('date').value,time,lat,lon,offset));
     $('panel-optimize').disabled=$('panel-optimize-year').disabled=$('panel-layout-year').disabled=true;
     recommendationKey='';
+    const controller=new AbortController();
+    activeRecommendation={key,controller};
     $('panel-advice').textContent='Đang so sánh góc pin theo vị trí từng tấm, hướng nhà và bóng che nhà bên…';
     try {
-      const search=G.recommendScene(samples,c,positions,layout);
-      let result;
-      do {
-        for(let i=0;i<8;i++){result=search.next();if(result.done)break;}
-        if(!result.done)await new Promise(resolve=>setTimeout(resolve,0));
-        if(key!==simulationKey()) {$('panel-advice').textContent='Mô phỏng đã thay đổi. Bấm gợi ý để tính lại theo cấu hình mới.';return;}
-      } while(!result.done);
-      const best=result.value;
+      const scene=sharedScene();
+      const response=await fetch('/api/calc/recommend',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({date:$('date').value,annual,layout,location:{lat,lon,offset},config:c,
+          positions,module:scene.module,outline:G.roofOutline(c),volumes:scene.volumes})});
+      if(!response.ok)throw Error('Recommendation unavailable');
+      const best=await response.json();
+      if(key!==simulationKey()) {$('panel-advice').textContent='Mô phỏng đã thay đổi. Bấm gợi ý để tính lại theo cấu hình mới.';return;}
       if(best.score<=0) {$('panel-advice').textContent='Không tìm thấy ánh nắng trực tiếp đến pin trong khoảng mô phỏng này. Kiểm tra bóng che hoặc vị trí.';return;}
       $('placement-ranking').innerHTML='';
       previewPlacement({...c,bearing:best.bearing,tilt:best.tilt},best.positions||positions,`Đề xuất ${annual?'năm '+year:'trong ngày'}: hướng ${best.bearing}°, nghiêng ${best.tilt}°. Chỉ số đón nắng ${best.baseline.toFixed(3)} → ${best.score.toFixed(3)} (điểm hình học, không phải kWh). Bố trí hiện tại chưa thay đổi.`,()=>{
@@ -260,8 +264,9 @@
       labels();render();
       });
     } catch {
-      $('panel-advice').textContent='Không tính được gợi ý. Bố trí hiện tại được giữ nguyên; hãy thử lại.';
+      $('panel-advice').textContent=controller.signal.aborted?'Mô phỏng đã thay đổi. Bấm gợi ý để tính lại theo cấu hình mới.':'Không tính được gợi ý. Bố trí hiện tại được giữ nguyên; hãy thử lại.';
     } finally {
+      activeRecommendation=null;
       $('panel-optimize').disabled=$('panel-optimize-year').disabled=$('panel-layout-year').disabled=false;
     }
   }
@@ -333,12 +338,45 @@
     document.querySelector('.time-ticks').textContent=events?.daylight===0 ? 'Không có ánh sáng ban ngày' : events?.daylight===1440 ? 'Mặt trời không lặn · 00:00 — 23:59' : `Mọc ${fmt(events.rise)} — Lặn ${fmt(events.set)}`;
     $('panel-advice').textContent='Gợi ý áp dụng cho ngày và vị trí đang chọn. Bấm gợi ý để tính lại.';
   };
+  function retryShade(){
+    lightingCache=null;
+    $('shade-retry').hidden=true;
+    scheduleRender();
+  }
+  $('shade-retry').onclick=retryShade;
+  globalThis.addEventListener?.('online',()=>{if(lightingCache?.failed)retryShade();});
+  function shadeFor(scene,sun){
+    if(lightingCache?.scene===scene && lightingCache.azimuth===sun.azimuth && lightingCache.altitude===sun.altitude)return lightingCache.frame;
+    if(lightingCache){clearTimeout(lightingCache.timer);lightingCache.controller.abort();}
+    const entry={scene,...sun,controller:new AbortController(),frame:null};
+    lightingCache=entry;
+    $('shade-retry').hidden=true;
+    entry.timer=setTimeout(async()=>{
+      try{
+        const {house,bearing,tilt}=scene.config;
+        const response=await fetch('/api/calc/shade',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.any([entry.controller.signal,AbortSignal.timeout(12000)]),
+          body:JSON.stringify({scene:{house,bearing,tilt,panels:scene.modules,volumes:scene.volumes},sun})});
+        if(!response.ok)throw Error('Shade unavailable');
+        const sample=await response.json();
+        if(entry!==lightingCache)return;
+        entry.frame=G.renderCells(scene,sample,6);
+        scheduleRender();
+      }catch(error){
+        if(entry===lightingCache && !entry.controller.signal.aborted){
+          entry.failed=true;
+          $('shade-retry').hidden=false;
+        }
+      }
+    },60);
+    return null;
+  }
   function render() {
     normalizePanels();
     const sceneKey=JSON.stringify([configuration(),getPositions(Number(controls.count.value)),lat,lon,offset]);
     if(initialized && lastEnergyScene && lastEnergyScene!==sceneKey)globalThis.invalidateSolarPrediction?.();
     lastEnergyScene=sceneKey;
     saveState();
+    if(activeRecommendation && activeRecommendation.key!==simulationKey())activeRecommendation.controller.abort();
     if(recommendationKey && recommendationKey!==simulationKey()) {
       recommendationKey='';
       $('panel-explanation').hidden=true;
@@ -376,7 +414,7 @@
     const {modules,neighbors,buildings,roofFaces}=shared,panel=modules[0];
     const buildingRoof=b=>shared.roofs[buildings.indexOf(b)];
     let sun=null;
-    if(locationReady) {
+    if(locationReady && events && Solar.ready($('date').value,lat,lon,offset)) {
       sun=Solar.position($('date').value,minute,lat,lon,offset);
 
       const key=`${$('date').value},${lat},${lon},${offset}`;
@@ -397,55 +435,76 @@
       $('panel-incidence').textContent=`${Math.round(incidence*100)}%`;
       $('panel-angle').textContent=sun.altitude>0?`${G.angle(sun,c.bearing,c.tilt).toFixed(1)}°`:'Dưới chân trời';
     } else {
-      $('panel-incidence').textContent='Chờ vị trí';$('panel-angle').textContent='—';
+      $('panel-incidence').textContent=locationReady?'—':'Chờ vị trí';$('panel-angle').textContent='—';
     }
-    const faces=[...shared.obstacleFaces];
-    for(const building of buildings) {
-      const top=buildingRoof(building);
-      for(let floor=0;floor<Math.round(building.height/3.2);floor++) {
-        const y0=floor*3.2,y1=y0+3.2;
-        for(let i=0;i<4;i++) {
-          const a=top[i],b=top[(i+1)%4];
-          faces.push({p:[[a[0],y0,a[2]],[b[0],y0,b[2]],[b[0],y1,b[2]],[a[0],y1,a[2]]],color:building.main?['#c9d4cf','#b3c3bd','#e5e8dd','#d5ded4'][i]:['#c7b9ac','#b1a599','#ded0bf','#cec0af'][i]});
-        }
-      }
-      faces.push({p:top,color:building.main?'#f1eee0':'#e4d4be'});
-    }
-
-    roofFaces.forEach((p,i)=>faces.push({p,color:['#aa654c','#cc8760','#d9b89b','#d9b89b'][i%4]}));
-    // Two door leaves on the north-facing wall identify the actual house bearing.
-    const [frontA,frontB]=G.roofOutline(c),dx=frontB[0]-frontA[0],dz=frontB[1]-frontA[1],span=Math.hypot(dx,dz);
-    function onDoor([x,y,z]){
-      const along=x*Math.min(1,span/2.4),out=z+c.length/2;
-      return rotate([(frontA[0]+frontB[0])/2+(along*dx-out*dz)/span,y,(frontA[1]+frontB[1])/2+(along*dz+out*dx)/span]);
-    }
-    for(const [left,right] of [[-1.1,0],[0,1.1]]) {
-      faces.push({p:[[left,.05,-c.length/2-.025],[right,.05,-c.length/2-.025],[right,2.55,-c.length/2-.025],[left,2.55,-c.length/2-.025]].map(onDoor),color:'#805234',stroke:'#d2b486'});
-      const handle=left===0?.14:-.14;
-      faces.push({p:[[handle,1.1,-c.length/2-.05],[handle,1.5,-c.length/2-.05]].map(onDoor),stroke:'#f5dd94'});
-    }
-    faces.forEach(face=>{face.stroke ||= '#879b96';});
     let shaded=0;
     const light=sun?G.incidence(sun,c.bearing,c.tilt):0;
-    const lightSun=sun||{azimuth:0,altitude:-90};
-    if(lightingCache?.scene!==shared || lightingCache.azimuth!==lightSun.azimuth || lightingCache.altitude!==lightSun.altitude)
-      lightingCache={scene:shared,...lightSun,frame:G.renderCells(shared,lightSun)};
-    const frame=lightingCache.frame;
-    for(const cell of frame.cells) {
-      if(!cell.lit)shaded++;
-      faces.push({p:cell.p,color:cell.lit?`hsl(204 43% ${24+light*24}%)`:'#142c3b',stroke:'#81b1c2'});
+    const needsMask=sun && light>1e-12;
+    if(!needsMask && lightingCache){
+      clearTimeout(lightingCache.timer);
+      lightingCache.controller.abort();
+      lightingCache=null;
+      $('shade-retry').hidden=true;
     }
-    for(const module of modules)for(const post of G.supports(module,buildingHeight,c.roof,c.house,c.width))faces.push({p:post,stroke:'#738887'});
-    if(surface.width!==canvas.width)surface.width=canvas.width;
-    if(surface.height!==canvas.height)surface.height=canvas.height;
-    const pixels=DepthRenderer.rasterize(surface.width,surface.height,faces,p=>{const v=project(p);return [v[0]*dpr,v[1]*dpr,v[2]];},colorOf,rasterWorkspace);
-    surfaceContext.putImageData(new ImageData(pixels,surface.width,surface.height),0,0);
-    ctx.drawImage(surface,0,0,width,height);
-    $('panel-shade').textContent=sun && sun.altitude>0 && light<=1e-12 ? 'Quay khỏi nắng' : sun && sun.altitude>0 ? `≈ ${Math.round(shaded/(36*c.count)*100)}%` : '—';
-    if(sun)$('panel-incidence').textContent=`${Math.round(light*(1-shaded/(36*c.count))*100)}%`;
+    const exposure=needsMask ? shadeFor(shared,sun) : null;
+    if(!faceCache || faceCache.scene!==shared || faceCache.exposure!==exposure || faceCache.light!==light){
+      const faces=[...shared.obstacleFaces];
+      for(const building of buildings) {
+        const top=buildingRoof(building);
+        for(let floor=0;floor<Math.round(building.height/3.2);floor++) {
+          const y0=floor*3.2,y1=y0+3.2;
+          for(let i=0;i<4;i++) {
+            const a=top[i],b=top[(i+1)%4];
+            faces.push({p:[[a[0],y0,a[2]],[b[0],y0,b[2]],[b[0],y1,b[2]],[a[0],y1,a[2]]],color:building.main?['#c9d4cf','#b3c3bd','#e5e8dd','#d5ded4'][i]:['#c7b9ac','#b1a599','#ded0bf','#cec0af'][i]});
+          }
+        }
+        faces.push({p:top,color:building.main?'#f1eee0':'#e4d4be'});
+      }
+
+      roofFaces.forEach((p,i)=>faces.push({p,color:['#aa654c','#cc8760','#d9b89b','#d9b89b'][i%4]}));
+      // Two door leaves on the north-facing wall identify the actual house bearing.
+      const [frontA,frontB]=G.roofOutline(c),dx=frontB[0]-frontA[0],dz=frontB[1]-frontA[1],span=Math.hypot(dx,dz);
+      function onDoor([x,y,z]){
+        const along=x*Math.min(1,span/2.4),out=z+c.length/2;
+        return rotate([(frontA[0]+frontB[0])/2+(along*dx-out*dz)/span,y,(frontA[1]+frontB[1])/2+(along*dz+out*dx)/span]);
+      }
+      for(const [left,right] of [[-1.1,0],[0,1.1]]) {
+        faces.push({p:[[left,.05,-c.length/2-.025],[right,.05,-c.length/2-.025],[right,2.55,-c.length/2-.025],[left,2.55,-c.length/2-.025]].map(onDoor),color:'#805234',stroke:'#d2b486'});
+        const handle=left===0?.14:-.14;
+        faces.push({p:[[handle,1.1,-c.length/2-.05],[handle,1.5,-c.length/2-.05]].map(onDoor),stroke:'#f5dd94'});
+      }
+      faces.forEach(face=>{face.stroke ||= '#879b96';});
+      if(exposure){
+        for(const cell of exposure.cells){
+          if(!cell.lit)shaded++;
+          faces.push({p:cell.p,color:cell.lit?`hsl(204 43% ${24+light*24}%)`:'#142c3b',stroke:'#81b1c2'});
+        }
+      }else{
+        for(const module of modules)faces.push({p:module,color:'#244860',stroke:'#81b1c2'});
+      }
+      for(const module of modules)for(const post of G.supports(module,buildingHeight,c.roof,c.house,c.width))faces.push({p:post,stroke:'#738887'});
+      faceCache={scene:shared,exposure,light,faces,shaded};
+    }
+    shaded=faceCache.shaded;
+    let image;
+    if(gpu){
+      try{image=gpu.draw(faceCache.faces,colorOf,{width,height,dpr,scale,yaw,pitch});}
+      catch{gpu.dispose();gpu=null;}
+    }
+    if(!image){
+      if(surface.width!==canvas.width)surface.width=canvas.width;
+      if(surface.height!==canvas.height)surface.height=canvas.height;
+      const pixels=DepthRenderer.rasterize(surface.width,surface.height,faceCache.faces,p=>{const v=project(p);return [v[0]*dpr,v[1]*dpr,v[2]];},colorOf,rasterWorkspace);
+      surfaceContext.putImageData(new ImageData(pixels,surface.width,surface.height),0,0);
+      image=surface;
+    }
+    ctx.drawImage(image,0,0,width,height);
+    $('panel-shade').textContent=sun && sun.altitude>0 && light<=1e-12 ? 'Quay khỏi nắng' : exposure ? `≈ ${Math.round(shaded/(36*c.count)*100)}%` : '—';
+    if(sun && light>1e-12 && !exposure)$('panel-incidence').textContent='—';
+    else if(sun)$('panel-incidence').textContent=`${Math.round(light*(1-shaded/(36*c.count))*100)}%`;
     // Draw the enlarged celestial arc over geometry so tall houses cannot hide it.
-    if(showSunPath && orbit.length && locationReady) {ctx.setLineDash([5,4]);polygon(orbit,null,'#bd8a23',2.5);ctx.setLineDash([]);}
-    if(locationReady) {
+    if(showSunPath && orbit.length && sun) {ctx.setLineDash([5,4]);polygon(orbit,null,'#bd8a23',2.5);ctx.setLineDash([]);}
+    if(sun) {
       for(const [time,label,color] of [[events.rise,'Mọc','#397c58'],[events.set,'Lặn','#ba7247']]) {
         if(time===null)continue;
         const position=Solar.position($('date').value,time,lat,lon,offset);
@@ -513,6 +572,7 @@
     previousHouse=Number(controls.house.value);
     $('energy-azimuth').value=controls.bearing.value;
     $('energy-tilt').value=controls.tilt.value;
+    globalThis.restorePlanningScenario(state.energy?.planning);
     if(state.energy) {
       if(state.energy.system)globalThis.applyEnergySystem(state.energy.system);
       $('energy-reserve').checked=state.energy.system ? state.energy.reserve : false;

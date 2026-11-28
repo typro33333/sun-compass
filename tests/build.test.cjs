@@ -3,11 +3,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../build');
-const html = fs.readFileSync(path.join(root, 'dist/index.html'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'dist/planner.html'), 'utf8');
 const files = fs.readdirSync(path.join(root, 'dist')).filter(name=>!/\.(br|gz)$/.test(name)).sort();
 const find = base => files.find(name => new RegExp('^' + base + '\\.[a-f0-9]{12}\\.').test(name));
-assert.equal(files.length,11);
-for(const name of ['system-sizing.html','panel-dimensions.html']) {
+
+for(const name of ['index.html','system-sizing.html','panel-dimensions.html']) {
   const page=fs.readFileSync(path.join(root,'dist',name),'utf8');
   for(const [,asset] of page.matchAll(/(?:src|href)="([^"/]+\.(?:js|css|svg))"/g)) {
     assert(files.includes(asset),`Missing standalone page asset ${asset}`);
@@ -17,6 +17,11 @@ for(const name of ['system-sizing.html','panel-dimensions.html']) {
 
 for (const base of ['app','theme','style','favicon']) assert(find(base));
 assert.deepEqual([...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]), [find('theme'), find('app')]);
+const compassPage=fs.readFileSync(path.join(root,'dist/compass.html'),'utf8');
+assert(compassPage.includes(find('compass')) && !compassPage.includes(find('app')));
+const gpu=find('roof-gpu');
+assert(gpu && html.includes('data-renderer="'+gpu+'"'));
+assert(!html.includes('src="'+gpu+'"'),'GPU engine must load on demand');
 const bundle = fs.readFileSync(path.join(root, 'dist', find('app')), 'utf8');
 assert(!bundle.includes('sourceMappingURL'));
 assert(!bundle.includes('OPEN_METEO_API_KEY'));
@@ -35,7 +40,7 @@ function node(id) {
 }
 for (const match of html.matchAll(/id="([^"]+)"[^>]*?(?:value="([^"]*)")?[^>]*>/g)) node(match[1]);
 for (const [id,value] of Object.entries({'energy-kwp':'3.6','energy-count':'6','energy-watts':'600','energy-loss':'20','energy-tilt':'15','energy-azimuth':'180','house-width':'8','house-length':'10','panel-count':'6','panel-floors':'1','panel-x':'0','panel-z':'0','house-bearing':'0','neighbor-left':'0','neighbor-right':'0'})) node(id).value=value;
-let gpsSuccess,gpsFailure,exportedBlob;
+let gpsSuccess,gpsFailure,exportedBlob,shadeAvailable=false;
 const context = { document:{ body:node('body'),documentElement:node('html'),cookie:'',hidden:false,createElement:node,createElementNS:(ns,tag)=>node(tag),getElementById:node,querySelector:node,addEventListener(){} },
   localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},sessionStorage:{getItem:()=>null,setItem(){}},location:{protocol:'https:',pathname},
   navigator:{geolocation:{getCurrentPosition(success,failure){gpsSuccess=success;gpsFailure=failure;}}},
@@ -44,12 +49,31 @@ const context = { document:{ body:node('body'),documentElement:node('html'),cook
   setInterval:fn=>{timers.push(fn);return timers.length;},clearInterval(){},setTimeout,clearTimeout,Date,Math,URLSearchParams,AbortController,AbortSignal,Response,DOMException,
   Blob,URL:{createObjectURL(blob){exportedBlob=blob;return 'blob:test-profile';},revokeObjectURL(){}},
   ImageData:class{constructor(data,width,height){Object.assign(this,{data,width,height});}},
-  fetch:async()=>Response.json({error:'mock unavailable'},{status:503}),
+  fetch:async(url,init)=>{
+    if(url==='/api/calc/recommend'){
+      const {config,positions}=JSON.parse(init.body);
+      return Response.json({bearing:config.bearing,tilt:config.tilt,baseline:1,score:1,positions,explanation:{beforeShade:0,afterShade:0,moved:0,neighbors:false}});
+    }
+    if(url==='/api/calc/annual'){
+      const {layouts}=JSON.parse(init.body);
+      return Response.json(layouts.map(layout=>({acKwh:layout.length*800,dcKwh:layout.length*850,shadeLossKwh:20,shadeFraction:.02})));
+    }
+    if(url==='/api/calc/shade' && shadeAvailable){
+      const {scene}=JSON.parse(init.body);
+      return Response.json({panels:scene.panels.map(()=>({cells:Array(36).fill(true),litFraction:1})),incidence:1});
+    }
+    if(url==='/api/calc/solar'){
+      const solar=require('./reference/solar.cjs'),{day,lat,lon,offset}=JSON.parse(init.body);
+      const positions=Array.from({length:1441},(_,i)=>{const p=solar.position(day,i,lat,lon,offset);return [p.altitude,p.azimuth];});
+      return Response.json({positions,events:solar.events(day,lat,lon,offset)});
+    }
+    return Response.json({error:'mock unavailable'},{status:503});
+  },
 };
 context.window=context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root,'dist',find('theme')),'utf8'),context);
-vm.runInContext(bundle,context);
+vm.runInContext(pathname==='/sun-compass'?fs.readFileSync(path.join(root,'dist',find('compass')),'utf8'):bundle,context);
 if(reloadOnly) {
   const saved=JSON.parse(prior);
   assert.equal(gpsSuccess,undefined,'Saved simulation location must survive instead of being overwritten by startup GPS');
@@ -75,12 +99,23 @@ node('header-gps').onclick();
 assert.equal(node('header-gps').dataset.state,'pending');
 gpsSuccess({coords:{latitude:10.8231,longitude:106.6297,accuracy:10}});
 assert.equal(node('header-gps').dataset.state,'success');
+await new Promise(resolve=>setImmediate(resolve));
 assert.match(node('rise-time').textContent,/\d{2}:\d{2}/);
 assert.match(node('set-time').textContent,/\d{2}:\d{2}/);
 node('time').input({target:{value:'600'}});
 assert.equal(node('selected-time').textContent,'10:00');
 if (pathname === '/sol-calculator') {
   assert.equal(node('panel-planner').hidden,false);
+  const localMinutes=id=>node(id).textContent.split(':').reduce((h,m)=>60*h+Number(m),0);
+  node('time').input({target:{value:(localMinutes('rise-time')+localMinutes('set-time'))/2}});
+  await new Promise(resolve=>setTimeout(resolve,90));
+  assert.equal(node('shade-retry').hidden,false,'Failed mask exposes a retry action');
+  shadeAvailable=true;
+  node('shade-retry').onclick();
+  await new Promise(resolve=>setTimeout(resolve,90));
+  assert.equal(node('shade-retry').hidden,true);
+  assert.match(node('panel-shade').textContent,/0%/,'Recovered mask is shown for the current scene');
+  node('time').input({target:{value:600}});
   const initialScene=context.getEnergyScene();
   assert.equal(context.getEnergyScene(),initialScene,'Unchanged geometry reuses the scene');
   const originalRasterize=context.DepthRenderer.rasterize;
@@ -98,7 +133,7 @@ if (pathname === '/sol-calculator') {
   assert.notEqual(context.getEnergyScene(),initialScene,'Geometry changes invalidate scene cache');
   node('panel-slope').value=oldTilt;node('panel-slope').input();
   assert.equal(node('.compass-card').hidden,true);
-  assert.equal(node('energy-open').href,'/');
+  assert.equal(node('energy-open').href,'/sun-compass');
   for(let i=0;i<5;i++)node('floor-add').onclick();
   assert.equal(Number(node('panel-floors').value),3);
   assert.equal(node('floor-add').disabled,true);
@@ -123,6 +158,7 @@ if (pathname === '/sol-calculator') {
   assert.equal(node('panel-follow').attrs['aria-pressed'],'true');
   assert.match(node('panel-view-status').textContent,/đang xoay theo/);
   node('date').value='2026-06-21';node('date').change();
+  await new Promise(resolve=>setImmediate(resolve));
   const juneRise=node('rise-time').textContent;
   node('date').value='2024-01-01';node('date').change();
   assert.equal(Number(node('year-day').max),366);
@@ -143,6 +179,7 @@ if (pathname === '/sol-calculator') {
   node('date').value='2026-06-21';node('date').change();
   node('month').value='12';node('month').input();
   assert.match(node('date').value,/2026-12-21/);
+  await new Promise(resolve=>setImmediate(resolve));
   assert.notEqual(node('rise-time').textContent,juneRise,'Month must update sunrise on calculator');
   node('energy-tilt').value='35';node('energy-tilt').input();
   assert.equal(Number(node('panel-slope').value),35);
@@ -342,7 +379,7 @@ assert.equal(typeof context.lat,'undefined','App lexical state must remain insid
 return storage;
 }
 (async()=>{
-await checkPage('/');
+await checkPage('/sun-compass');
 const storage=await checkPage('/sol-calculator');
 await checkPage('/sol-calculator',storage,true);
 console.log('Production bundle checks passed: startup, simulation reload, canceled drafts, scene recommendations, stale-result rejection and time slider.');

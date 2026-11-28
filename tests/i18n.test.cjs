@@ -37,7 +37,7 @@ const samples=[
  '6 giờ 30 phút', 'Tháng 11 năm 2026', 'BẮC · 0°', 'NAM · 180°', 'ĐÔNG · 90°', 'TÂY · 270°'
 ];
 let total=0;
-for(const file of ['index.html','panel-dimensions.html','system-sizing.html']) {
+for(const file of ['index.html','compass.html','panel-dimensions.html','system-sizing.html']) {
  const html=fs.readFileSync(require.resolve('../dist/'+file),'utf8'),{root,ids}=parse(html);
  let observer;const document={body:root,documentElement:{},title:html.match(/<title>(.*?)<\/title>/)[1],getElementById:id=>ids.get(id)};
  const ctx={document,localStorage:{getItem:()=> 'en',setItem(){}},MutationObserver:class{constructor(fn){observer=fn;}observe(){}disconnect(){}}};

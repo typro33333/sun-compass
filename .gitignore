@@ -4,3 +4,4 @@
 .env.*.local
 .openai
 build/
+node_modules/

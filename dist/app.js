@@ -30,28 +30,76 @@ const lowRenderQuality = (globalThis.navigator?.deviceMemory <= 4 || globalThis.
 globalThis.lowRenderQuality = lowRenderQuality;
 let dailyOrbitKey = '', dailyOrbit = [];
 function draw(){
- if (!locationReady) return;
+ if (!locationReady || !events || !Solar.ready($('date').value,lat,lon,offset)) return;
  const day=$('date').value,p=Solar.position(day,minute,lat,lon,offset);
- let dial='<circle cx="300" cy="300" r="210" fill="none" stroke="#e4e8dc"/><circle cx="300" cy="300" r="155" fill="none" stroke="#edf0e8" stroke-dasharray="3 6"/><circle cx="300" cy="300" r="85" fill="none" stroke="#edf0e8" stroke-dasharray="3 6"/>';
- for(let a=0;a<360;a+=(lowRenderQuality ? 6 : 3))dial+=line(a,a%30===0?218:224,232,a%30===0?'#98a58e':'#cfd6c5',a%30===0?1.5:1);
- for(let a=0;a<360;a+=30){const [x,y]=point(a,201);dial+=`<text x="${x}" y="${y+3}" text-anchor="middle" font-size="9" fill="#5f7062">${a}°</text>`;}
- ['B','Đ','N','T'].forEach((d,i)=>{const [x,y]=point(i*90,260);dial+=`<text x="${x}" y="${y+6}" text-anchor="middle" font-size="19" font-weight="500" fill="${i===0?'#91632a':'#56695b'}">${d}</text>`;});$('dial').innerHTML=dial;
- const orbitKey = `${day},${lat},${lon},${offset}`;
- if (orbitKey !== dailyOrbitKey) {
-   dailyOrbitKey = orbitKey;
-   dailyOrbit = Array.from({ length: lowRenderQuality ? 121 : 361 }, (_, i) => Solar.position(day,i*(lowRenderQuality ? 12 : 4),lat,lon,offset));
+ if (!globalThis.isSolarCalculator) {
+   let dial='<circle cx="300" cy="300" r="210" fill="none" stroke="#e4e8dc"/><circle cx="300" cy="300" r="155" fill="none" stroke="#edf0e8" stroke-dasharray="3 6"/><circle cx="300" cy="300" r="85" fill="none" stroke="#edf0e8" stroke-dasharray="3 6"/>';
+   for(let a=0;a<360;a+=(lowRenderQuality ? 6 : 3))dial+=line(a,a%30===0?218:224,232,a%30===0?'#98a58e':'#cfd6c5',a%30===0?1.5:1);
+   for(let a=0;a<360;a+=30){const [x,y]=point(a,201);dial+=`<text x="${x}" y="${y+3}" text-anchor="middle" font-size="9" fill="#5f7062">${a}°</text>`;}
+   ['B','Đ','N','T'].forEach((d,i)=>{const [x,y]=point(i*90,260);dial+=`<text x="${x}" y="${y+6}" text-anchor="middle" font-size="19" font-weight="500" fill="${i===0?'#91632a':'#56695b'}">${d}</text>`;});$('dial').innerHTML=dial;
+   const orbitKey = `${day},${lat},${lon},${offset}`;
+   if (orbitKey !== dailyOrbitKey) {
+     dailyOrbitKey = orbitKey;
+     dailyOrbit = Array.from({ length: lowRenderQuality ? 121 : 361 }, (_, i) => Solar.position(day,i*(lowRenderQuality ? 12 : 4),lat,lon,offset));
+   }
+   let path='',pen=false;for(const s of dailyOrbit){if(s.altitude<-.833){pen=false;continue;}const [x,y]=point(s.azimuth,210*(90-Math.max(0,s.altitude))/90);path+=`${pen?'L':'M'}${x},${y} `;pen=true;}
+   let plot=`<path d="${path}" fill="none" stroke="#c2ae72" stroke-width="1.6" stroke-dasharray="4 5"/>`;
+   [[events.rise,'#3f7052','MỌC'],[events.set,'#9a5536','LẶN']].forEach(([m,c,t])=>{if(m===null)return;const s=Solar.position(day,m,lat,lon,offset),[x,y]=point(s.azimuth,210),label=point(s.azimuth,177);plot+=line(s.azimuth,20,210,c,.7)+`<circle cx="${x}" cy="${y}" r="5" fill="${c}"/><text x="${label[0]}" y="${label[1]-9}" font-size="9" text-anchor="middle" fill="${c}">${t}</text>`;});
+   const [x,y]=point(p.azimuth,210*(90-Math.max(0,p.altitude))/90);plot+=line(p.azimuth,17,210,'#d2aa4f',1);plot+=`<circle cx="${x}" cy="${y}" r="25" fill="#f3cb66" opacity=".15"/><circle cx="${x}" cy="${y}" r="14" fill="${p.altitude>=-.833?'#efc15b':'#a4b0b7'}" stroke="white" stroke-width="4" filter="url(#shadow)"/>`;$('plot').innerHTML=plot;
  }
- let path='',pen=false;for(const s of dailyOrbit){if(s.altitude<-.833){pen=false;continue;}const [x,y]=point(s.azimuth,210*(90-Math.max(0,s.altitude))/90);path+=`${pen?'L':'M'}${x},${y} `;pen=true;}
- let plot=`<path d="${path}" fill="none" stroke="#c2ae72" stroke-width="1.6" stroke-dasharray="4 5"/>`;
- [[events.rise,'#3f7052','MỌC'],[events.set,'#9a5536','LẶN']].forEach(([m,c,t])=>{if(m===null)return;const s=Solar.position(day,m,lat,lon,offset),[x,y]=point(s.azimuth,210),label=point(s.azimuth,177);plot+=line(s.azimuth,20,210,c,.7)+`<circle cx="${x}" cy="${y}" r="5" fill="${c}"/><text x="${label[0]}" y="${label[1]-9}" font-size="9" text-anchor="middle" fill="${c}">${t}</text>`;});
- const [x,y]=point(p.azimuth,210*(90-Math.max(0,p.altitude))/90);plot+=line(p.azimuth,17,210,'#d2aa4f',1);plot+=`<circle cx="${x}" cy="${y}" r="25" fill="#f3cb66" opacity=".15"/><circle cx="${x}" cy="${y}" r="14" fill="${p.altitude>=-.833?'#efc15b':'#a4b0b7'}" stroke="white" stroke-width="4" filter="url(#shadow)"/>`;$('plot').innerHTML=plot;
  $('selected-time').textContent=fmt(minute);$('azimuth').textContent=`${p.azimuth.toFixed(1)}° ${direction(p.azimuth)}`;$('altitude').textContent=`${p.altitude.toFixed(1)}°`;
  $('day-status').textContent=p.altitude>=-.833?'Ban ngày':'Ban đêm';$('phase').textContent=p.altitude<-.833?'Dưới đường chân trời':p.altitude<6?'Ánh nắng sát chân trời':'Nắng ban ngày';$('time').value=minute;$('time').setAttribute('aria-valuetext',fmt(minute));
  updateWeatherVisibility();
  globalThis.renderSolarScene?.();
  globalThis.renderPanelPlanner?.();
 }
-function refresh(){if (!locationReady) return;globalThis.onSolarLocationChanged?.();syncMonth();loadWeather();events=Solar.events($('date').value,lat,lon,offset);globalThis.onSolarDayChanged?.();for(const [key,m] of [['rise',events.rise],['set',events.set]]){$(key+'-time').textContent=fmt(m);$(key+'-dir').textContent=m===null?'Không xảy ra':(()=>{const a=Solar.position($('date').value,m,lat,lon,offset).azimuth;return `${Math.round(a)}° ${direction(a)}`;})();}$('daylength').textContent=`${Math.floor(events.daylight/60)} giờ ${events.daylight%60} phút`;draw();}
+let solarRequest=0,solarFailed=false;
+function solarNotice(text,failed=false){
+  solarFailed=failed;
+  $('solar-service-notice').hidden=!text;
+  $('solar-service-status').textContent=text;
+  $('solar-retry').hidden=!failed;
+}
+$('solar-retry').onclick=()=>refresh();
+globalThis.addEventListener?.('online',()=>{if(solarFailed)refresh();});
+async function refresh(){
+  if(!locationReady)return;
+  const request=++solarRequest,day=$('date').value,annualStep=yearAdvancing;
+  globalThis.onSolarLocationChanged?.();syncMonth();loadWeather();
+  if(!Solar.ready(day,lat,lon,offset)){
+    events=null;
+    solarNotice('Đang tải vị trí mặt trời…');
+    $('play').disabled=true;
+    $('selected-time').textContent=fmt(minute);
+    globalThis.renderSolarScene?.();
+    globalThis.renderPanelPlanner?.();
+    for(const id of ['rise-time','set-time','rise-dir','set-dir','daylength','azimuth','altitude','phase','day-status'])$(id).textContent='—';
+    $('plot').innerHTML='';
+    try {await Solar.load(day,lat,lon,offset);}
+    catch {
+      if(request===solarRequest){
+        stop();
+        solarNotice('Chưa tải được vị trí mặt trời. Hãy thử lại.',true);
+      }
+      return;
+    }
+  }
+  if(request!==solarRequest)return;
+  solarNotice('');
+  $('play').disabled=false;
+  events=Solar.events(day,lat,lon,offset);
+  const previousStep=yearAdvancing;
+  yearAdvancing=annualStep;
+  try {globalThis.onSolarDayChanged?.();}
+  finally {yearAdvancing=previousStep;}
+  for(const [key,m] of [['rise',events.rise],['set',events.set]]){
+    $(key+'-time').textContent=fmt(m);
+    if(m===null)$(key+'-dir').textContent='Không xảy ra';
+    else {const a=Solar.position(day,m,lat,lon,offset).azimuth;$(key+'-dir').textContent=`${Math.round(a)}° ${direction(a)}`;}
+  }
+  $('daylength').textContent=`${Math.floor(events.daylight/60)} giờ ${events.daylight%60} phút`;
+  draw();
+}
 function stop(){if (!yearAdvancing) stopYear();clearInterval(playing);playing=null;$('play').textContent='Tự chạy';$('play').dataset.playing='false';}
 $('time').addEventListener('input',e=>{stop();minute=+e.target.value;draw();});
 $('date').addEventListener('change',()=>{if(!$('date').value){$('date').value=today();}refresh();});

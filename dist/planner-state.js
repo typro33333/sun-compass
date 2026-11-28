@@ -30,6 +30,11 @@
     const energy=value.energy;
     if(energy && inRange(energy.kwp,.1,100000) && inRange(energy.loss,0,80) && typeof energy.reserve==='boolean')state.energy={kwp:config.watts?config.count*config.watts/1000:energy.kwp,loss:energy.loss,reserve:energy.reserve};
     if(energy?.system!==undefined){try{if(!state.energy)return null;state.energy.system=root.Energy.validateSystem(energy.system);}catch{return null;}}
+    if(energy?.planning!==undefined){
+      const plan=energy.planning;
+      if(!state.energy||!root.Energy.validPlan(plan)||typeof plan.enabled!=='boolean')return null;
+      state.energy.planning={enabled:plan.enabled,...Object.fromEntries(Object.keys(root.Energy.planningLimits).map(key=>[key,plan[key]]))};
+    }
     return state;
   }
   function load(storage) {try{return validate(JSON.parse(storage.getItem(key)));}catch{return null;}}

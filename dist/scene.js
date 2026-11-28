@@ -16,7 +16,11 @@
     if (follow && globalThis.compassState?.ready) yaw = heading * radians;
     const mode = follow ? (globalThis.compassState?.ready ? '3D đang xoay theo la bàn thiết bị.' : '3D sẽ xoay theo điện thoại khi bật la bàn.') : '3D đang xoay bằng tay.';
     if (mode !== lastMode) { lastMode = mode; $('scene-mode').textContent = mode; }
-    if (!locationReady) { $('scene-status').textContent = 'Đang chờ vị trí'; return; }
+    if (!locationReady || !events || !Solar.ready($('date').value,lat,lon,offset)) {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      $('scene-status').textContent=locationReady?'—':'Đang chờ vị trí';
+      return;
+    }
     const width = canvas.clientWidth, height = canvas.clientHeight;
     if (!width || !height) return;
     const dpr = Math.min(window.devicePixelRatio || 1, globalThis.lowRenderQuality ? 1 : 2);

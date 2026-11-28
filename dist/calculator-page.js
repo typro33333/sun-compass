@@ -5,7 +5,7 @@ globalThis.isSolarCalculator = /^\/sol-calculator\/?$/.test(location.pathname ||
   if (!globalThis.isSolarCalculator) {
     document.querySelector('.weather-card').hidden = true;
     document.getElementById('location-status').textContent = 'Cho phép vị trí để xem hướng nắng tại nơi bạn đang đứng.';
-    document.getElementById('location-purpose').textContent = 'La bàn tính toán hướng nắng trên trình duyệt. Thời tiết và điện mặt trời nằm ở trang tính toán riêng.';
+    document.getElementById('location-purpose').textContent = 'La bàn dùng tọa độ và ngày bạn chọn để lấy hướng nắng từ máy chủ Hướng Nắng.';
     return;
   }
   globalThis.hideCurrentWeather = true;
@@ -16,7 +16,7 @@ globalThis.isSolarCalculator = /^\/sol-calculator\/?$/.test(location.pathname ||
   document.querySelector('.intro h1').textContent = 'Đặt pin. Đón trọn nắng.';
   document.querySelector('.intro p').textContent = 'Bố trí trên mái, khám phá ánh sáng và dự đoán điện năng trong một không gian riêng.';
   const link = document.getElementById('energy-open');
-  link.href = '/'; link.textContent = '← Về la bàn';
+  link.href = '/sun-compass'; link.textContent = '← Về la bàn';
   document.querySelector('.compass-card').hidden = true;
   document.querySelector('.compass-help').hidden = true;
   document.querySelector('.sun-times').hidden = true;

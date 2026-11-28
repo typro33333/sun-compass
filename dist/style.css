@@ -499,3 +499,23 @@ header .brand{white-space:nowrap;font-size:28px}
 .roof-edge-length{font-size:.48px;text-anchor:middle;fill:#203e38;stroke:white;stroke-width:.1px;paint-order:stroke;pointer-events:none}
 #layout-plane [data-corner]{cursor:grab}
 #layout-shape[aria-pressed="true"]{background:#315c4b;color:white}
+
+.landing main{max-width:1240px;padding:clamp(16px,4vw,48px) clamp(16px,4vw,44px)}
+.home-hero{display:grid;grid-template-columns:1.1fr 1fr;align-items:center;background:#183f34;color:#fff8e6;border-radius:24px;padding:clamp(24px,5vw,66px);gap:20px}
+.home-hero h1{font:550 clamp(2.4rem,5vw,4.8rem)/1.05 Georgia,serif;letter-spacing:-.035em;margin:0;color:inherit}
+.home-hero p,.home-tools p{line-height:1.65}.home-hero p{max-width:46ch;color:#d9e7d8;margin:22px 0}
+.home-actions{display:flex;flex-wrap:wrap;align-items:center;gap:18px}.home-actions a{color:#fff8e6;font-weight:600}.home-actions a:first-child{background:#ffda90;color:#223c32;text-decoration:none;padding:12px 19px;border-radius:9px}
+.home-illustration{width:100%;height:auto}.home-tools{margin:40px 0}.home-tools h2{font-size:clamp(1.5rem,3vw,2.1rem)}.home-tools>div{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 28px}
+.home-tools a{border-top:1px solid #82978b;padding:18px 30px 8px 0;color:inherit;text-decoration:none;position:relative}.home-tools a:after{content:'↗';position:absolute;right:4px;top:18px}.home-tools a:hover h3{text-decoration:underline}.home-tools h3,.home-tools p{margin:0 0 8px}
+@media(max-width:700px){.home-hero,.home-tools>div{grid-template-columns:1fr}.home-illustration{max-height:200px}.home-tools{margin:28px 0}}
+
+.home-example{display:grid;grid-template-columns:1.4fr 1fr;gap:clamp(18px,5vw,70px);padding:clamp(22px,4vw,44px);background:#eee5d1;color:#253d32;border-radius:18px;align-items:center}
+.home-example h2,.home-guide h2{margin:0 0 12px;font:550 clamp(1.6rem,3vw,2.4rem)/1.15 Georgia,serif}.home-example p,.home-guide p{line-height:1.65;max-width:64ch}.home-example a,.home-guide a{color:inherit;font-weight:650}
+.home-example dl{display:flex;gap:24px;flex-wrap:wrap;margin:0}.home-example dd{margin:4px 0;font:500 clamp(2rem,4vw,3.8rem)/1.2 Georgia,serif}.home-example small{font:500 1rem system-ui}
+.home-guide{padding:clamp(28px,5vw,60px) 0}.home-guide details{padding:16px 0;border-bottom:1px solid #82978b}.home-guide summary{font-weight:600;cursor:pointer}.home-guide a{display:inline-block;margin-bottom:6px}
+@media(max-width:700px){.home-example{grid-template-columns:1fr}}
+
+.solar-service-notice{padding:8px 12px;margin-bottom:12px;border-inline-start:3px solid #ba8b42;font-size:.9rem}
+.solar-service-notice button,#shade-retry{padding:6px 10px}
+.solar-service-notice[hidden],#solar-retry[hidden],#shade-retry[hidden]{display:none}
+.home-reading{margin-top:clamp(30px,5vw,60px)}.home-reading h2{font:550 clamp(1.6rem,3vw,2.4rem)/1.15 Georgia,serif;margin:0 0 20px}.home-reading>div{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,4vw,46px)}.home-reading article{border-top:2px solid #a0844e;padding-top:16px}.home-reading h3{margin:0}.home-reading p{line-height:1.65}.home-reading a{color:inherit;font-weight:650}@media(max-width:700px){.home-reading>div{grid-template-columns:1fr}}

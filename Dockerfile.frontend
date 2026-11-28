@@ -2,15 +2,18 @@
 ARG BUN_VERSION=1.4.5
 FROM oven/bun:${BUN_VERSION}-alpine AS builder
 WORKDIR /app
-COPY package.json server.js ./
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+COPY server.js ./
 COPY lib ./lib
 COPY scripts ./scripts
 COPY dist ./dist
-RUN bun run build
+RUN SOL_EXTERNAL_CALCULATOR=1 bun run build
 
 FROM oven/bun:${BUN_VERSION}-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
+    SOL_CALC_SOCKET=/run/huongnang/calc.sock \
     PORT=5173 \
     LOG_LEVEL=info
 COPY --from=builder --chown=bun:bun /app/build/ ./

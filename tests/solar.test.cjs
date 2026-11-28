@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const solar = require('../dist/solar.js');
+const solar = require('./reference/solar.cjs');
 const equinox = solar.events('2026-03-20', 0, 0, 0);
 assert(Math.abs(equinox.rise - 360) < 15, 'Equatorial sunrise near 06:00');
 assert(Math.abs(equinox.set - 1080) < 15, 'Equatorial sunset near 18:00');
@@ -48,3 +48,39 @@ for (const lat of [-90, -80, 80, 90]) for (const day of ['2026-06-21','2026-12-2
   assert.equal(value.daylight, (lat > 0) === (day.includes('06-21')) ? 1440 : 0);
 }
 console.log(`NOAA: ${reference.rows.length} days/sites, ${reference.rows.length*5} positions; max angle ${maxAngle.toFixed(6)}°, max event ${maxTime.toFixed(3)} min.`);
+
+async function testSolarClient(calculator){
+  const fs=require('node:fs'),vm=require('node:vm');
+  const fields=new Map(),listeners={},requests=[];
+  function node(id){
+    if(!fields.has(id))fields.set(id,{value:'',textContent:'',innerHTML:'',style:{},dataset:{},addEventListener(k,fn){this[k]=fn;},setAttribute(){}});
+    return fields.get(id);
+  }
+  const context=vm.createContext({
+    document:{getElementById:node},isSolarCalculator:calculator,hideCurrentWeather:true,Date,AbortSignal,AbortController,
+    addEventListener:(name,fn)=>listeners[name]=fn,clearInterval(){},setInterval:()=>1,
+    fetch:(url,{body})=>new Promise(resolve=>requests.push({url,body:JSON.parse(body),resolve}))
+  });
+  for(const name of ['solar','app'])vm.runInContext(fs.readFileSync(require.resolve('../dist/'+name+'.js'),'utf8'),context);
+  function refresh(day){node('date').value=day;return vm.runInContext('locationReady=true;refresh()',context);}
+  const day='2026-06-21',next='2026-06-22',older='2026-06-23',newer='2026-06-24';
+  const data=(rise)=>Response.json({events:{rise,set:1080,daylight:720},positions:Array.from({length:1441},(_,i)=>[30,i===0?359:1])});
+  const first=refresh(day);
+  assert.equal(node('play').disabled,true);assert.equal(node('solar-service-notice').hidden,false);
+  requests.at(-1).resolve(new Response(null,{status:503}));await first;
+  assert.equal(node('solar-retry').hidden,false);assert.equal(node('rise-time').textContent,'—');
+  const retry=node('solar-retry').onclick();
+  requests.at(-1).resolve(data(361));await retry;
+  assert.equal(node('rise-time').textContent,'06:01');assert.equal(node('solar-service-notice').hidden,true);
+  const angles=vm.runInContext('Solar.position($("date").value,.5,lat,lon,offset)',context);
+  assert.equal(angles.azimuth,0,'Interpolate across north on the shortest arc');
+  const count=requests.length;
+  await refresh(day);assert.equal(requests.length,count,'Slider and revisited dates reuse the cached ephemeris');
+  const failed=refresh(next);requests.at(-1).resolve(new Response(null,{status:503}));await failed;
+  listeners.online();requests.at(-1).resolve(data(362));await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(node('rise-time').textContent,'06:02');
+  const a=refresh(older),respondA=requests.at(-1).resolve,b=refresh(newer);
+  requests.at(-1).resolve(data(364));await b;respondA(data(363));await a;
+  assert.equal(node('rise-time').textContent,'06:04','Slow older responses cannot replace the active date');
+}
+Promise.all([testSolarClient(false),testSolarClient(true)]).then(()=>console.log('Solar client checks passed: loading, failure, retry, reconnect, cached day, north crossing and stale responses on both pages.')).catch(error=>{console.error(error);process.exitCode=1;});

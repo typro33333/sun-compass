@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-const E=require('../dist/energy.js'),G=require('../dist/panel-geometry.js'),Solar=require('../dist/solar.js');
+const E=require('../dist/energy.js'),G=require('./oracles/panel-geometry.cjs'),Solar=require('./reference/solar.cjs');
 const nodes=new Map();
 const $=id=>{if(!nodes.has(id))nodes.set(id,{value:'',checked:false,hidden:false,textContent:'',innerHTML:'',setAttribute(key,value){this[key]=String(value);},addEventListener(type,fn){this[type]=fn;},checkValidity:()=>true,reportValidity:()=>true,scrollIntoView(){}});return nodes.get(id);};
 Object.entries({'energy-count':2,'energy-watts':600,'energy-kwp':1.2,'energy-tilt':0,'energy-azimuth':90,'energy-loss':20}).forEach(([key,v])=>$(key).value=v);
@@ -7,7 +7,15 @@ const config={width:8,length:10,count:2,watts:600,roof:0,bearing:90,tilt:0,floor
 let calls=0,release=null,lastQuery;
 const start=Date.parse('2026-06-21T00:00:00Z')/1000-7*3600;
 const payload={hourly_units:{global_tilted_irradiance:'W/m²',direct_normal_irradiance:'W/m²'},hourly:{time:Array.from({length:24},(_,i)=>start+(i+1)*3600),global_tilted_irradiance:Array(24).fill(100),direct_normal_irradiance:Array(24).fill(0),cloud_cover:Array(24).fill(100),rain:Array(24).fill(2),showers:Array(24).fill(0)}};
-const ctx={$,Energy:E,PanelGeometry:G,Solar,isSolarCalculator:true,document:{getElementById:$,addEventListener(){}},localStorage:{},SolarProfile:{migrate:()=>null,write(){}},locationReady:true,lat:10,lon:106,offset:7,today:()=> '2026-06-21',getEnergyScene:()=>G.scene(config,[{x:-2,z:0},{x:2,z:0}]),URLSearchParams,Date,AbortController,setTimeout,clearTimeout,setInterval:()=>0,ForecastClient:{fetch:async query=>{calls++;lastQuery=query;if(release)await new Promise(resolve=>release.resolve=resolve);return {ok:true,json:async()=>payload};}}};
+const oracle=require('./oracles/energy.cjs');
+const client={...E,async calculate(endpoint,incoming){
+ assert.equal(endpoint,'energy');
+ assert.deepEqual(incoming.scene.panels,G.scene(config,[{x:-2,z:0},{x:2,z:0}]).modules);
+ const scene=G.scene(config,[{x:-2,z:0},{x:2,z:0}]);
+ const result=oracle.estimateSystem(incoming.hourly,incoming.start,incoming.end,{...incoming.system,scene,location:incoming.location});
+ return {result,reserve:oracle.weatherReserve(incoming.hourly,result)};
+}};
+const ctx={$,Energy:client,PanelGeometry:G,Solar,isSolarCalculator:true,document:{getElementById:$,addEventListener(){}},localStorage:{},SolarProfile:{migrate:()=>null,write(){}},locationReady:true,lat:10,lon:106,offset:7,today:()=> '2026-06-21',getEnergyScene:()=>G.scene(config,[{x:-2,z:0},{x:2,z:0}]),URLSearchParams,Date,AbortController,setTimeout,clearTimeout,setInterval:()=>0,ForecastClient:{fetch:async query=>{calls++;lastQuery=query;if(release)await new Promise(resolve=>release.resolve=resolve);return {ok:true,json:async()=>payload};}}};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync(require.resolve('../dist/energy-ui.js'),'utf8'),ctx);
 const wait=()=>new Promise(r=>setTimeout(r,5));
 (async()=>{

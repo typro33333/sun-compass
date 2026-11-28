@@ -1,26 +1,9 @@
-// Offline prototype. Annual POA is an explicit user scenario, not weather data.
+// Annual POA is an explicit user scenario. The private worker evaluates each layout.
 (function(root) {
   const G=()=>root.PanelGeometry,E=()=>root.Energy;
   function scenario({year,location,config,annualPoa}) {
     if(!Number.isInteger(year)||year<1900||year>2100||!Number.isFinite(annualPoa)||annualPoa<=0||annualPoa>4000||!Number.isFinite(location?.lat)||Math.abs(location.lat)>90||!Number.isFinite(location.lon)||Math.abs(location.lon)>180||!Number.isFinite(location.offset)||location.offset< -12||location.offset>14)throw Error('Kịch bản bức xạ năm không hợp lệ.');
-    const days=[];
-    let normalization=0;
-    for(let month=0;month<12;month++) {
-      const day=`${year}-${String(month+1).padStart(2,'0')}-15`,weight=new Date(Date.UTC(year,month+1,0)).getUTCDate();
-      const start=Date.parse(day+'T00:00:00Z')/1000-location.offset*3600;
-      const hourly={time:[],global_tilted_irradiance:[],direct_normal_irradiance:[]};
-      for(let h=0;h<24;h++) {
-        const sun=root.Solar.position(day,h*60+30,location.lat,location.lon,location.offset),height=Math.max(0,Math.sin(sun.altitude*Math.PI/180));
-        const dni=height*.8,gti=dni*G().incidence(sun,config.bearing,config.tilt)+height*.2;
-        hourly.time.push(start+(h+1)*3600);hourly.global_tilted_irradiance.push(gti);hourly.direct_normal_irradiance.push(dni);
-        normalization+=gti*weight;
-      }
-      days.push({start,end:start+86400,weight,hourly});
-    }
-    if(normalization<=0)throw Error('Không có bức xạ trong tập ngày đại diện.');
-    const scale=annualPoa*1000/normalization;
-    for(const d of days)for(const field of ['global_tilted_irradiance','direct_normal_irradiance'])d.hourly[field]=d.hourly[field].map(v=>v*scale);
-    return {kind:'assumed-annual-poa',annualPoa,year,location:{...location},bearing:config.bearing,tilt:config.tilt,days};
+    return {annualPoa,year,location:{...location},bearing:config.bearing,tilt:config.tilt};
   }
   function valid(positions,c,spacing=.02) {
     const module=G().moduleFor(c.watts);
@@ -35,27 +18,24 @@
     }
     return spots;
   }
-  function evaluate(config,positions,system,climate) {
-    if(config.bearing!==climate.bearing || config.tilt!==climate.tilt)throw Error('Kịch bản bức xạ không khớp hướng/nghiêng.');
-    const scene=G().scene(config,positions),total={acKwh:0,dcKwh:0,shadeLossKwh:0,rawDcKwh:0};
-    for(const d of climate.days) {
-      const r=E().estimateSystem(d.hourly,d.start,d.end,{...system,scene,location:climate.location});
-      total.acKwh+=r.kwh*d.weight;total.dcKwh+=r.dcKwh*d.weight;total.shadeLossKwh+=r.shadeLossKwh*d.weight;total.rawDcKwh+=r.rawDcKwh*d.weight;
-    }
-    return {...total,shadeFraction:total.rawDcKwh?total.shadeLossKwh/total.rawDcKwh:0};
-  }
-  function* propose({config,positions,system,scenario:climate,spacing=.02,step=1}) {
+  async function* propose({config,positions,system,scenario:climate,spacing=.02,step=1,signal}) {
     // Normalize offsets in the draft only. Current layout stays untouched.
     const c={...config,x:0,z:0},manualPositions=positions.map(p=>({...p,x:p.x+config.x,z:p.z-config.z}));
-    const manual=evaluate(c,manualPositions,system,climate),spots=candidates(c,{spacing,step});
+    const {panels,...scene}=E().geometry(G().scene(c,manualPositions));
+    const evaluate=layouts=>E().calculate('annual',{
+      ...climate,watts:c.watts,system,scene,layouts:layouts.map(positions=>G().panelSurfaces(c,positions))
+    },signal);
+    const [manual]=await evaluate([manualPositions]);
+    const spots=candidates(c,{spacing,step});
     const seen=new Set(spots.map(p=>JSON.stringify([p.x,p.z,p.rotation||0])));
     for(const p of [...manualPositions,...G().packPanels(c.count,c.bearing-c.house,c.length,c.width,G().moduleFor(c.watts),c.outline)]) {
       const key=JSON.stringify([p.x,p.z,p.rotation||0]);if(!seen.has(key)&&valid([p],c,spacing)){spots.push({...p});seen.add(key);}
     }
     const ranking=[];
-    for(const position of spots) {
-      const value=evaluate({...c,count:1},[position],system,climate);
-      ranking.push({position,...value});
+    for(let start=0;start<spots.length;start+=24){
+      const chunk=spots.slice(start,start+24);
+      const values=await evaluate(chunk.map(position=>[position]));
+      chunk.forEach((position,i)=>ranking.push({position,...values[i]}));
       yield {completed:ranking.length,total:spots.length};
     }
     ranking.sort((a,b)=>b.dcKwh-a.dcKwh || a.shadeFraction-b.shadeFraction || a.position.z-b.position.z || a.position.x-b.position.x || (a.position.rotation||0)-(b.position.rotation||0));
@@ -67,7 +47,7 @@
         if(valid([...next,r.position],c,spacing))next.push(r.position);
       }
       if(next.length===c.count) {
-        const value=evaluate(c,next,system,climate);
+        const [value]=await evaluate([next]);
         if(!best || value.acKwh>best.value.acKwh+1e-9)best={positions:next,value};
       }
       yield {completed:spots.length,total:spots.length};
@@ -75,6 +55,6 @@
     if(!best)throw Error('Chưa tìm được bố trí đủ số tấm và khoảng cách yêu cầu. Giảm khoảng cách hoặc tăng kích thước mái.');
     return {config:c,positions:best.positions.map(p=>({...p})),manual,proposed:best.value,ranking,spacing,step,year:climate.year,annualPoa:climate.annualPoa};
   }
-  root.AnnualPlacement={scenario,candidates,valid,evaluate,propose};
+  root.AnnualPlacement={scenario,candidates,valid,propose};
   if (typeof module !== 'undefined') module.exports = root.AnnualPlacement;
 })(typeof window !== 'undefined' ? window : globalThis);

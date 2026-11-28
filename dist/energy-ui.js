@@ -56,9 +56,36 @@ energyForm.addEventListener('submit', event => {
   if (!locationReady) { $('energy-status').textContent = 'Cần cấp quyền GPS trước khi dự đoán điện mặt trời.'; return; }
   try {globalThis.readEnergySystem();saveProfile();calculateEnergy();} catch(error){$('energy-status').textContent=error.message;}
 });
+const planningKeys=Object.keys(Energy.planningLimits);
+let lastValidPlan;
+function syncPlanningFields(){
+  for(const key of planningKeys){
+    $('planning-'+key).disabled=!$('planning-enabled').checked;
+    $('planning-'+key).required=$('planning-enabled').checked;
+  }
+}
+$('planning-enabled').addEventListener('change',syncPlanningFields);
+function planValues(){return Object.fromEntries(planningKeys.map(key=>[key,Number($('planning-'+key).value)]));}
+function planningScenario(){return $('planning-enabled').checked?planValues():null;}
+globalThis.storedPlanningScenario=()=>{
+  const enabled=$('planning-enabled').checked;
+  if(!enabled&&!lastValidPlan)return;
+  const values=planValues();
+  if(Energy.validPlan(values))lastValidPlan=values;
+  if(lastValidPlan)return {enabled,...lastValidPlan};
+};
+globalThis.restorePlanningScenario=plan=>{
+  lastValidPlan=plan;
+  $('planning-enabled').checked=plan?.enabled??false;
+  for(const key of planningKeys){
+    const node=$('planning-'+key);
+    node.value=plan?plan[key]:node.defaultValue;
+  }
+  syncPlanningFields();
+};
 function forecastInputKey() {
   const scene=globalThis.getEnergyScene();
-  return JSON.stringify([scene.config,scene.positions,globalThis.readEnergySystem(),lat,lon,offset,today(),$('energy-reserve').checked,Number($('energy-tilt').value),Number($('energy-azimuth').value),Number($('energy-count').value),Number($('energy-watts').value)]);
+  return JSON.stringify([planningScenario(),scene.config,scene.positions,globalThis.readEnergySystem(),lat,lon,offset,today(),$('energy-reserve').checked,Number($('energy-tilt').value),Number($('energy-azimuth').value),Number($('energy-count').value),Number($('energy-watts').value)]);
 }
 async function calculateEnergy() {
   if (!energyForm.checkValidity()) {
@@ -98,9 +125,16 @@ async function calculateEnergy() {
     if(inputKey!==forecastInputKey()){globalThis.invalidateSolarPrediction();return;}
     if(controller.signal.aborted)throw new DOMException('Yêu cầu quá thời gian','AbortError');
     if (data.hourly_units?.global_tilted_irradiance !== 'W/m²' || data.hourly_units?.direct_normal_irradiance !== 'W/m²') throw new Error('Đơn vị bức xạ không hợp lệ.');
-    const result = Energy.estimateSystem(data.hourly, start, end, {...system,scene,location:forecastLocation});
+    const {result,reserve,planning}=await Energy.calculate('energy',{hourly:data.hourly,start,end,watts:scene.config.watts,system,scene:Energy.geometry(scene),location:forecastLocation,planning:planningScenario()},controller.signal);
+    if(request!==energyRequest)return;
+    if(inputKey!==forecastInputKey()){globalThis.invalidateSolarPrediction();return;}
+    if(controller.signal.aborted)throw new DOMException('Yêu cầu quá thời gian','AbortError');
+    $('planning-result').hidden=!planning;
+    if(planning){
+      const ids={charged:'charge',discharged:'discharge',grid:'import',exported:'export',annualSavings:'savings',roi:'roi'};
+      for(const [key,id] of Object.entries(ids))$('planning-'+id).textContent=planning[key].toLocaleString(globalThis.solLocale?.() || 'vi-VN',{maximumFractionDigits:key==='annualSavings'?0:2});
+    }
     renderEnergyAnalysis(result, forecastLocation.offset);
-    const reserve = Energy.weatherReserve(data.hourly, result);
     const useReserve = $('energy-reserve').checked && reserve !== null;
     const output = useReserve ? reserve.kwh : result.kwh;
     const reduction = useReserve ? reserve.percent : 0;

@@ -50,3 +50,8 @@ const energySystem=require('../dist/energy.js');
 const withSystem={...dimensioned,energy:{...dimensioned.energy,system:energySystem.defaultSystem()}};
 assert.deepEqual(State.importBackup(State.exportBackup(withSystem)),withSystem);
 assert.equal(State.validate({...withSystem,energy:{...withSystem.energy,system:{...withSystem.energy.system,inverter:{...withSystem.energy.system.inverter,efficiency:101}}}}),null);
+
+const scenario={enabled:true,dayKwh:20,nightKwh:30,capacity:10,power:5,price:3000,capital:1e8,annualCost:1e6,years:10};
+const withPlanning={...withSystem,energy:{...withSystem.energy,planning:scenario}};
+assert.deepEqual(State.importBackup(State.exportBackup(withPlanning)),withPlanning);
+assert.equal(State.validate({...withPlanning,energy:{...withSystem.energy,planning:{...scenario,capacity:-1}}}),null);

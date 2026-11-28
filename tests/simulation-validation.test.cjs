@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const G=require('../dist/panel-geometry.js'),E=require('../dist/energy.js'),S=require('../dist/solar.js');
+const G=require('./oracles/panel-geometry.cjs'),E=require('./oracles/energy.cjs'),S=require('./reference/solar.cjs');
 const c={width:14,length:12,count:2,watts:600,roof:0,bearing:90,tilt:60,floors:0,x:0,z:0,house:0,left:0,right:2,leftRoof:0,rightRoof:1};
 const positions=[{x:-3,z:0},{x:3,z:0}];
 const system={losses:{temperature:8,wiring:2,soiling:3,other:1},inverter:{acKw:.3,maxPvKw:20,efficiency:97,mpptCount:2,mpptMinV:100,mpptMaxV:800,mpptMaxA:1,operatingV:200}};

@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const G=require('../dist/panel-geometry.js'), Solar=require('../dist/solar.js');
+const G=require('./oracles/panel-geometry.cjs'), Solar=require('./reference/solar.cjs');
 const close=(a,b)=>assert(Math.abs(a-b)<1e-9,`${a} != ${b}`);
 close(G.incidence({azimuth:180,altitude:60},180,30),1);
 close(G.incidence({azimuth:0,altitude:45},180,90),0);
@@ -192,7 +192,7 @@ for(const watts of [550,600,700])for(const bearing of [0,32,45,90,122,173,295])f
 console.log('6 × 20 m roof packing: 18 panels at 550/600/700 W, 20 panels at 550/600 W across rotations passed.');
 
 {
-  const G=require('../dist/panel-geometry.js');
+  const G=require('./oracles/panel-geometry.cjs');
   const c={width:8,length:12,count:1,watts:600,house:45,bearing:45,tilt:15,floors:0,roof:0,left:2,right:3,leftRoof:0,rightRoof:1,x:0,z:0};
   const positions=[{x:0,z:0}];
   for(const [type,x,height] of [['tank',-8,6.4],['antenna',8,12.6]]) {
@@ -206,7 +206,7 @@ console.log('6 × 20 m roof packing: 18 panels at 550/600/700 W, 20 panels at 55
 }
 
 {
-  const G=require('../dist/panel-geometry.js');
+  const G=require('./oracles/panel-geometry.cjs');
   for(const width of [3,8])for(const house of [0,127])for(const neighbor of [false,true]){
     const roofX=neighbor?width/2+4:0,roofWidth=neighbor?8:width,height=neighbor?9.6:3.2;
     for(const dx of [-roofWidth/2+.73,-.35,0,.35,roofWidth/2-.73]){
